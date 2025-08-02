@@ -1,0 +1,104 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+video-downloader
+video-downloader-server
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+
+# Configuration files with sensitive data
+config/config.yaml
+config/local.yaml
+config/production.yaml
+config/development.yaml
+
+# Database files
+*.db
+*.db-journal
+data/
+
+# Downloaded files
+downloads/
+*.mp4
+*.mp3
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.m4a
+
+# Log files
+logs/
+*.log
+*.txt
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+*.temp
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker volumes
+docker-compose.override.yml
+
+# SSL certificates
+ssl/
+*.pem
+*.key
+*.crt
+*.csr
+
+# Build artifacts
+dist/
+build/
+
+# Dependency directories
+vendor/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Backup files
+*.backup
+*.bak
+
+# Cache
+.cache/
+
+# Profiling files
+*.prof
+*.pprof
+
+# Air live reload
+.air.toml
+.tmp/
