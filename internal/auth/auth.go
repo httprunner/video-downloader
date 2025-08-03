@@ -2,10 +2,12 @@ package auth
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"time"
 	
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
 	
 	"video-downloader/pkg/models"
@@ -22,14 +24,14 @@ var (
 type AuthService struct {
 	storage    models.Storage
 	jwtSecret  []byte
-	logger     *logrus.Logger
+	logger     zerolog.Logger
 }
 
 // NewAuthService creates a new authentication service
 func NewAuthService(jwtSecret string) *AuthService {
 	return &AuthService{
 		jwtSecret:  []byte(jwtSecret),
-		logger:     logrus.New(),
+		logger:     zerolog.New(os.Stdout).With().Timestamp().Logger(),
 	}
 }
 
@@ -66,7 +68,7 @@ func (s *AuthService) CreateUser(username, password, role string) (*models.User,
 		UpdatedAt: time.Now(),
 	}
 	
-	s.logger.WithField("username", username).Info("User created successfully")
+	s.logger.Info().Str("username", username).Msg("User created successfully")
 	
 	return user, nil
 }
@@ -106,7 +108,7 @@ func (s *AuthService) Authenticate(username, password string) (string, *models.U
 	now := time.Now()
 	user.LastLogin = &now
 	
-	s.logger.WithField("username", username).Info("User authenticated successfully")
+	s.logger.Info().Str("username", username).Msg("User authenticated successfully")
 	
 	return token, user, nil
 }
@@ -216,7 +218,7 @@ func (s *AuthService) UpdateUser(username string, updates map[string]interface{}
 	
 	user.UpdatedAt = time.Now()
 	
-	s.logger.WithField("username", username).Info("User updated successfully")
+	s.logger.Info().Str("username", username).Msg("User updated successfully")
 	
 	return nil
 }
@@ -244,14 +246,14 @@ func generateUserID() string {
 // SessionManager manages user sessions
 type SessionManager struct {
 	sessions map[string]*models.Session
-	logger   *logrus.Logger
+	logger   zerolog.Logger
 }
 
 // NewSessionManager creates a new session manager
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
 		sessions: make(map[string]*models.Session),
-		logger:   logrus.New(),
+		logger:   zerolog.New(os.Stdout).With().Timestamp().Logger(),
 	}
 }
 
@@ -268,7 +270,7 @@ func (sm *SessionManager) CreateSession(userID, token string, expiresAt time.Tim
 	
 	sm.sessions[session.ID] = session
 	
-	sm.logger.WithField("user_id", userID).Info("Session created")
+	sm.logger.Info().Str("user_id", userID).Msg("Session created")
 	
 	return session, nil
 }
@@ -298,7 +300,7 @@ func (sm *SessionManager) InvalidateSession(sessionID string) error {
 	
 	session.Active = false
 	
-	sm.logger.WithField("session_id", sessionID).Info("Session invalidated")
+	sm.logger.Info().Str("session_id", sessionID).Msg("Session invalidated")
 	
 	return nil
 }
@@ -313,10 +315,10 @@ func (sm *SessionManager) InvalidateAllUserSessions(userID string) error {
 		}
 	}
 	
-	sm.logger.WithFields(logrus.Fields{
-		"user_id": userID,
-		"count":   count,
-	}).Info("All user sessions invalidated")
+	sm.logger.Info().
+		Str("user_id", userID).
+		Str("count", fmt.Sprintf("%d", count)).
+		Msg("All user sessions invalidated")
 	
 	return nil
 }
@@ -334,7 +336,7 @@ func (sm *SessionManager) CleanupExpiredSessions() {
 	}
 	
 	if count > 0 {
-		sm.logger.WithField("count", count).Info("Cleaned up expired sessions")
+		sm.logger.Info().Str("count", fmt.Sprintf("%d", count)).Msg("Cleaned up expired sessions")
 	}
 }
 

@@ -13,13 +13,13 @@ import (
 	"sync"
 	"time"
 	
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 )
 
 // DownloadManager manages concurrent downloads
 type DownloadManager struct {
 	client      *HTTPClient
-	logger      *logrus.Logger
+	logger      zerolog.Logger
 	maxWorkers  int
 	chunkSize   int64
 	retryCount  int
@@ -64,7 +64,7 @@ func NewDownloadManager(config DownloadConfig) *DownloadManager {
 	
 	return &DownloadManager{
 		client:     NewHTTPClient(ClientConfig{Timeout: config.Timeout}),
-		logger:     logrus.New(),
+		logger:     zerolog.New(os.Stdout).With().Timestamp().Logger(),
 		maxWorkers: config.MaxWorkers,
 		chunkSize:  config.ChunkSize,
 		retryCount: config.RetryCount,
@@ -229,12 +229,12 @@ func (dm *DownloadManager) downloadFile(job *DownloadJob, progressChan chan<- fl
 	now := time.Now()
 	job.EndTime = &now
 	
-	dm.logger.WithFields(logrus.Fields{
-		"job_id":     job.ID,
-		"file_size":  FormatBytes(job.FileSize),
-		"duration":   FormatDuration(now.Sub(startTime)),
-		"speed":      FormatBytes(int64(job.Speed)) + "/s",
-	}).Info("Download completed")
+	dm.logger.Info().
+		Str("job_id", job.ID).
+		Str("file_size", FormatBytes(job.FileSize)).
+		Str("duration", FormatDuration(now.Sub(startTime))).
+		Str("speed", FormatBytes(int64(job.Speed))+"/s").
+		Msg("Download completed")
 }
 
 // GetJobStatus returns the status of a download job
@@ -315,7 +315,7 @@ func generateJobID() string {
 // M3U8Downloader downloads HLS streams
 type M3U8Downloader struct {
 	client     *HTTPClient
-	logger     *logrus.Logger
+	logger     zerolog.Logger
 	tempDir    string
 	maxWorkers int
 }
@@ -324,7 +324,7 @@ type M3U8Downloader struct {
 func NewM3U8Downloader(config DownloadConfig) *M3U8Downloader {
 	return &M3U8Downloader{
 		client:     NewHTTPClient(ClientConfig{Timeout: config.Timeout}),
-		logger:     logrus.New(),
+		logger:     zerolog.New(os.Stdout).With().Timestamp().Logger(),
 		tempDir:    config.TempDir,
 		maxWorkers: config.MaxWorkers,
 	}
@@ -389,7 +389,7 @@ func (md *M3U8Downloader) DownloadM3U8(m3u8URL, outputPath string, progressChan 
 				errorsMu.Lock()
 				downloadErrors = append(downloadErrors, err)
 				errorsMu.Unlock()
-				md.logger.WithError(err).Error("Error downloading segment")
+				md.logger.Error().Err(err).Msg("Error downloading segment")
 				return
 			}
 			segmentFiles[index] = segmentFile

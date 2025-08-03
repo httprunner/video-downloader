@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 	
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"golang.org/x/net/proxy"
 )
 
@@ -16,7 +17,7 @@ import (
 type HTTPClient struct {
 	client    *http.Client
 	transport *http.Transport
-	logger    *logrus.Logger
+	logger    zerolog.Logger
 }
 
 // ClientConfig represents HTTP client configuration
@@ -76,7 +77,7 @@ func NewHTTPClient(config ClientConfig) *HTTPClient {
 	return &HTTPClient{
 		client:    client,
 		transport: transport,
-		logger:    logrus.New(),
+		logger:    zerolog.New(os.Stdout).With().Timestamp().Logger(),
 	}
 }
 
@@ -115,10 +116,10 @@ func (c *HTTPClient) Do(req *http.Request, headers map[string]string) (*http.Res
 	}
 	
 	// Log request
-	c.logger.WithFields(logrus.Fields{
-		"method": req.Method,
-		"url":    req.URL.String(),
-	}).Debug("Making HTTP request")
+	c.logger.Debug().
+		Str("method", req.Method).
+		Str("url", req.URL.String()).
+		Msg("Making HTTP request")
 	
 	return c.client.Do(req)
 }
@@ -135,12 +136,12 @@ func (c *HTTPClient) GetWithRetry(url string, headers map[string]string, maxRetr
 		}
 		
 		if i < maxRetries-1 {
-			c.logger.WithFields(logrus.Fields{
-				"attempt": i + 1,
-				"max":     maxRetries,
-				"url":     url,
-				"error":   err,
-			}).Warn("Request failed, retrying...")
+			c.logger.Warn().
+				Int("attempt", i+1).
+				Int("max", maxRetries).
+				Str("url", url).
+				Err(err).
+				Msg("Request failed, retrying...")
 			
 			time.Sleep(retryDelay)
 		}
@@ -197,7 +198,7 @@ func (c *HTTPClient) Close() error {
 }
 
 // SetLogger sets the logger for the HTTP client
-func (c *HTTPClient) SetLogger(logger *logrus.Logger) {
+func (c *HTTPClient) SetLogger(logger zerolog.Logger) {
 	c.logger = logger
 }
 

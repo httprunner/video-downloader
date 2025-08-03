@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	
 	"github.com/spf13/viper"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	
 	"video-downloader/pkg/models"
 )
@@ -15,7 +15,7 @@ import (
 type Manager struct {
 	config *models.Config
 	viper  *viper.Viper
-	logger *logrus.Logger
+	logger zerolog.Logger
 }
 
 // NewManager creates a new configuration manager
@@ -23,7 +23,7 @@ func NewManager() *Manager {
 	return &Manager{
 		config: &models.Config{},
 		viper:  viper.New(),
-		logger: logrus.New(),
+		logger: zerolog.New(os.Stdout).With().Timestamp().Logger(),
 	}
 }
 
@@ -57,7 +57,7 @@ func (m *Manager) Load(configPath string) (*models.Config, error) {
 		}
 		// Config file not found, create default
 		if err := m.createDefaultConfig(); err != nil {
-			m.logger.Warnf("Failed to create default config: %v", err)
+			m.logger.Warn().Msgf("Failed to create default config: %v", err)
 		}
 	}
 	
@@ -233,7 +233,7 @@ rate_limit:
 		return fmt.Errorf("error writing default config: %w", err)
 	}
 	
-	m.logger.Infof("Created default config file at: %s", configFile)
+	m.logger.Info().Msgf("Created default config file at: %s", configFile)
 	return nil
 }
 
@@ -258,31 +258,29 @@ func (m *Manager) ensureDirectories() error {
 // configureLogger configures the logger based on settings
 func (m *Manager) configureLogger() {
 	// Set log level
-	level, err := logrus.ParseLevel(m.config.Log.Level)
+	level, err := zerolog.ParseLevel(m.config.Log.Level)
 	if err != nil {
-		level = logrus.InfoLevel
+		level = zerolog.InfoLevel
 	}
-	m.logger.SetLevel(level)
+	zerolog.SetGlobalLevel(level)
 	
 	// Set log format
 	if m.config.Log.Format == "json" {
-		m.logger.SetFormatter(&logrus.JSONFormatter{})
+		// JSON format is default for zerolog
 	} else {
-		m.logger.SetFormatter(&logrus.TextFormatter{
-			FullTimestamp: true,
-		})
+		m.logger = m.logger.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	}
 	
 	// Set log output
 	if m.config.Log.Output != "stdout" {
 		file, err := os.OpenFile(m.config.Log.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err == nil {
-			m.logger.SetOutput(file)
+			m.logger = m.logger.Output(file)
 		}
 	}
 }
 
 // GetLogger returns the logger instance
-func (m *Manager) GetLogger() *logrus.Logger {
+func (m *Manager) GetLogger() zerolog.Logger {
 	return m.logger
 }

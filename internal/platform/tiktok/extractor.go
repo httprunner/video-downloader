@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"regexp"
 	"time"
 	
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	
 	"video-downloader/internal/utils"
 	"video-downloader/pkg/models"
@@ -17,7 +18,7 @@ import (
 type tiktokExtractor struct {
 	client     *utils.HTTPClient
 	config     *models.ExtractorConfig
-	logger     *logrus.Logger
+	logger     zerolog.Logger
 	userAgent  string
 	cookie     string
 }
@@ -104,7 +105,7 @@ func NewExtractor(config *models.ExtractorConfig) *tiktokExtractor {
 			TLSInsecure: true,
 		}),
 		config:    config,
-		logger:    logrus.New(),
+		logger:    zerolog.New(os.Stdout).With().Timestamp().Logger(),
 		userAgent: userAgent,
 		cookie:    config.Cookie,
 	}

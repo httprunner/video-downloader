@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"time"
 	
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"golang.org/x/net/html"
 	
 	"video-downloader/internal/utils"
@@ -20,7 +21,7 @@ import (
 type kuaishouExtractor struct {
 	client     *utils.HTTPClient
 	config     *models.ExtractorConfig
-	logger     *logrus.Logger
+	logger     zerolog.Logger
 	userAgent  string
 	cookie     string
 }
@@ -109,7 +110,7 @@ func NewExtractor(config *models.ExtractorConfig) *kuaishouExtractor {
 			TLSInsecure: true,
 		}),
 		config:    config,
-		logger:    logrus.New(),
+		logger:    zerolog.New(os.Stdout).With().Timestamp().Logger(),
 		userAgent: userAgent,
 		cookie:    config.Cookie,
 	}

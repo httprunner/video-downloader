@@ -2,10 +2,11 @@ package auth
 
 import (
 	"net/http"
+	"os"
 	"strings"
 	
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	
 	"video-downloader/pkg/models"
 )
@@ -13,14 +14,14 @@ import (
 // AuthMiddleware handles authentication for protected routes
 type AuthMiddleware struct {
 	authService *AuthService
-	logger      *logrus.Logger
+	logger      zerolog.Logger
 }
 
 // NewAuthMiddleware creates a new authentication middleware
 func NewAuthMiddleware(authService *AuthService) *AuthMiddleware {
 	return &AuthMiddleware{
 		authService: authService,
-		logger:      logrus.New(),
+		logger:      zerolog.New(os.Stdout).With().Timestamp().Logger(),
 	}
 }
 
@@ -46,7 +47,7 @@ func (m *AuthMiddleware) Required() gin.HandlerFunc {
 		// Validate token
 		user, err := m.authService.ValidateToken(tokenString)
 		if err != nil {
-			m.logger.WithError(err).Warn("Invalid token")
+			m.logger.Warn().Err(err).Msg("Invalid token")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			c.Abort()
 			return

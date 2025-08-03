@@ -12,7 +12,8 @@ import (
 	
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	
 	"video-downloader/internal/auth"
 	"video-downloader/internal/downloader"
@@ -31,7 +32,7 @@ type Server struct {
 	authService   *auth.AuthService
 	rateLimitMgr  *ratelimit.Manager
 	httpServer    *http.Server
-	logger        *logrus.Logger
+	logger        zerolog.Logger
 }
 
 // NewServer creates a new API server
@@ -39,7 +40,7 @@ func NewServer(cfg *models.Config, storage models.Storage) *Server {
 	// Create download manager
 	dm := downloader.NewManager(cfg, storage)
 	if err := dm.Start(); err != nil {
-		logrus.WithError(err).Fatal("Error starting download manager")
+		log.Fatal().Err(err).Msg("Error starting download manager")
 	}
 	
 	// Create monitor
@@ -54,10 +55,10 @@ func NewServer(cfg *models.Config, storage models.Storage) *Server {
 	if _, err := storage.GetUserByUsername("admin"); err != nil {
 		adminUser, err := authSvc.CreateUser("admin", cfg.Auth.AdminPassword, "admin")
 		if err != nil {
-			logrus.WithError(err).Warn("Failed to create admin user")
+			log.Warn().Err(err).Msg("Failed to create admin user")
 		} else {
 			storage.SaveUser(adminUser)
-			logrus.Info("Created default admin user")
+			log.Info().Msg("Created default admin user")
 		}
 	}
 	
@@ -86,7 +87,7 @@ func NewServer(cfg *models.Config, storage models.Storage) *Server {
 		monitor:      mon,
 		authService:  authSvc,
 		rateLimitMgr: rateLimitMgr,
-		logger:       logrus.New(),
+		logger:       zerolog.New(os.Stdout).With().Timestamp().Logger(),
 	}
 }
 
@@ -113,9 +114,9 @@ func (s *Server) Start() error {
 	
 	// Start server
 	go func() {
-		s.logger.WithField("address", s.httpServer.Addr).Info("Starting API server")
+		s.logger.Info().Str("address", s.httpServer.Addr).Msg("Starting API server")
 		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			s.logger.WithError(err).Fatal("Error starting server")
+			s.logger.Fatal().Err(err).Msg("Error starting server")
 		}
 	}()
 	
@@ -124,7 +125,7 @@ func (s *Server) Start() error {
 
 // Stop stops the API server
 func (s *Server) Stop() error {
-	s.logger.Info("Stopping API server...")
+	s.logger.Info().Msg("Stopping API server...")
 	
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -135,16 +136,16 @@ func (s *Server) Stop() error {
 	
 	// Stop download manager
 	if err := s.downloader.Stop(); err != nil {
-		s.logger.WithError(err).Error("Error stopping download manager")
+		s.logger.Error().Err(err).Msg("Error stopping download manager")
 	}
 	
 	// Shutdown HTTP server
 	if err := s.httpServer.Shutdown(ctx); err != nil {
-		s.logger.WithError(err).Error("Error shutting down server")
+		s.logger.Error().Err(err).Msg("Error shutting down server")
 		return err
 	}
 	
-	s.logger.Info("API server stopped")
+	s.logger.Info().Msg("API server stopped")
 	return nil
 }
 
@@ -603,7 +604,7 @@ func (s *Server) login(c *gin.Context) {
 	
 	// Save session to storage
 	if err := s.storage.SaveSession(session); err != nil {
-		s.logger.WithError(err).Error("Failed to save session")
+		s.logger.Error().Err(err).Msg("Failed to save session")
 	}
 	
 	c.JSON(http.StatusOK, gin.H{
@@ -654,7 +655,7 @@ func (s *Server) register(c *gin.Context) {
 	
 	// Save user to storage
 	if err := s.storage.SaveUser(user); err != nil {
-		s.logger.WithError(err).Error("Failed to save user")
+		s.logger.Error().Err(err).Msg("Failed to save user")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
 	}
@@ -699,7 +700,7 @@ func (s *Server) logout(c *gin.Context) {
 	
 	// Invalidate all user sessions
 	if err := s.storage.InvalidateAllUserSessions(user.ID); err != nil {
-		s.logger.WithError(err).Error("Failed to invalidate sessions")
+		s.logger.Error().Err(err).Msg("Failed to invalidate sessions")
 	}
 	
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
@@ -796,7 +797,7 @@ func (s *Server) updateUser(c *gin.Context) {
 	
 	// Save to storage
 	if err := s.storage.UpdateUser(user); err != nil {
-		s.logger.WithError(err).Error("Failed to update user")
+		s.logger.Error().Err(err).Msg("Failed to update user")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
 		return
 	}

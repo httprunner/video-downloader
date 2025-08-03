@@ -1,13 +1,14 @@
 package monitor
 
 import (
+	"os"
 	"runtime"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 )
 
 // Metrics represents all the application metrics
@@ -145,7 +146,7 @@ func NewMetrics() *Metrics {
 // Monitor represents the monitoring system
 type Monitor struct {
 	metrics     *Metrics
-	logger      *logrus.Logger
+	logger      zerolog.Logger
 	stopChan    chan struct{}
 	wg          sync.WaitGroup
 }
@@ -154,7 +155,7 @@ type Monitor struct {
 func NewMonitor() *Monitor {
 	return &Monitor{
 		metrics:  NewMetrics(),
-		logger:   logrus.New(),
+		logger:   zerolog.New(os.Stdout).With().Timestamp().Logger(),
 		stopChan: make(chan struct{}),
 	}
 }
@@ -164,7 +165,7 @@ func (m *Monitor) Start() {
 	m.wg.Add(1)
 	go m.collectSystemMetrics()
 	
-	m.logger.Info("Monitoring system started")
+	m.logger.Info().Msg("Monitoring system started")
 }
 
 // Stop stops the monitoring system
@@ -172,7 +173,7 @@ func (m *Monitor) Stop() {
 	close(m.stopChan)
 	m.wg.Wait()
 	
-	m.logger.Info("Monitoring system stopped")
+	m.logger.Info().Msg("Monitoring system stopped")
 }
 
 // collectSystemMetrics collects system metrics periodically
@@ -255,12 +256,12 @@ func (m *Monitor) GetMetrics() *Metrics {
 }
 
 // GetLogger returns the logger
-func (m *Monitor) GetLogger() *logrus.Logger {
+func (m *Monitor) GetLogger() zerolog.Logger {
 	return m.logger
 }
 
 // SetLogger sets the logger
-func (m *Monitor) SetLogger(logger *logrus.Logger) {
+func (m *Monitor) SetLogger(logger zerolog.Logger) {
 	m.logger = logger
 }
 

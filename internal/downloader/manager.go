@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 	
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	
 	"video-downloader/internal/platform"
 	"video-downloader/internal/utils"
@@ -19,7 +19,7 @@ import (
 // Manager manages the download process
 type Manager struct {
 	config     *models.Config
-	logger     *logrus.Logger
+	logger     zerolog.Logger
 	storage    models.Storage
 	downloader *utils.DownloadManager
 	extractors map[models.Platform]models.PlatformExtractor
@@ -103,7 +103,7 @@ func NewManager(cfg *models.Config, storage models.Storage) *Manager {
 	
 	return &Manager{
 		config:     cfg,
-		logger:     logrus.New(),
+		logger:     zerolog.New(os.Stdout).With().Timestamp().Logger(),
 		storage:    storage,
 		downloader: dm,
 		extractors: extractors,
@@ -122,7 +122,7 @@ func (m *Manager) Start() error {
 		go m.worker(i)
 	}
 	
-	m.logger.Info("Download manager started")
+	m.logger.Info().Msg("Download manager started")
 	return nil
 }
 
@@ -130,7 +130,7 @@ func (m *Manager) Start() error {
 func (m *Manager) Stop() error {
 	m.cancel()
 	m.wg.Wait()
-	m.logger.Info("Download manager stopped")
+	m.logger.Info().Msg("Download manager stopped")
 	return nil
 }
 
@@ -207,7 +207,7 @@ func (m *Manager) GetStatus() map[string]interface{} {
 func (m *Manager) worker(id int) {
 	defer m.wg.Done()
 	
-	m.logger.WithField("worker_id", id).Info("Download worker started")
+	m.logger.Info().Str("worker_id", fmt.Sprintf("%d", id)).Msg("Download worker started")
 	
 	for {
 		select {
@@ -258,7 +258,7 @@ func (m *Manager) processDownload(req *DownloadRequest) chan *DownloadResult {
 		
 		// Save video info
 		if err := m.storage.SaveVideoInfo(videoInfo); err != nil {
-			m.logger.WithError(err).Error("Error saving video info")
+			m.logger.Error().Err(err).Msg("Error saving video info")
 		}
 		
 		// Generate output path
@@ -270,7 +270,7 @@ func (m *Manager) processDownload(req *DownloadRequest) chan *DownloadResult {
 			for progress := range progressChan {
 				// Update progress in storage
 				if err := m.storage.UpdateDownloadProgress(videoInfo.ID, progress); err != nil {
-					m.logger.WithError(err).Error("Error updating download progress")
+					m.logger.Error().Err(err).Msg("Error updating download progress")
 				}
 			}
 		}()
@@ -285,7 +285,7 @@ func (m *Manager) processDownload(req *DownloadRequest) chan *DownloadResult {
 			videoInfo.RetryCount++
 			
 			if err := m.storage.SaveVideoInfo(videoInfo); err != nil {
-				m.logger.WithError(err).Error("Error updating video status")
+				m.logger.Error().Err(err).Msg("Error updating video status")
 			}
 			
 			result.Error = fmt.Errorf("error downloading video: %w", err)
@@ -304,7 +304,7 @@ func (m *Manager) processDownload(req *DownloadRequest) chan *DownloadResult {
 		
 		// Save updated video info
 		if err := m.storage.SaveVideoInfo(videoInfo); err != nil {
-			m.logger.WithError(err).Error("Error saving updated video info")
+			m.logger.Error().Err(err).Msg("Error saving updated video info")
 		}
 		
 		result.Success = true

@@ -1,13 +1,15 @@
 package ratelimit
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
 	
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"golang.org/x/time/rate"
 )
 
@@ -15,7 +17,7 @@ import (
 type RateLimiter struct {
 	visitors map[string]*Visitor
 	mu      sync.RWMutex
-	logger  *logrus.Logger
+	logger  zerolog.Logger
 }
 
 // Visitor represents a visitor with rate limiting info
@@ -28,7 +30,7 @@ type Visitor struct {
 func NewRateLimiter() *RateLimiter {
 	return &RateLimiter{
 		visitors: make(map[string]*Visitor),
-		logger:   logrus.New(),
+		logger:   zerolog.New(os.Stdout).With().Timestamp().Logger(),
 	}
 }
 
@@ -50,7 +52,7 @@ func (rl *RateLimiter) Middleware(rps int, burst int) gin.HandlerFunc {
 		
 		// Check if request is allowed
 		if !limiter.Allow() {
-			rl.logger.WithField("ip", ip).Warn("Rate limit exceeded")
+			rl.logger.Warn().Str("ip", ip).Msg("Rate limit exceeded")
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error": "Rate limit exceeded",
 				"retry_after": "1s",
@@ -105,14 +107,14 @@ func (rl *RateLimiter) cleanupVisitors() {
 // Throttler represents a request throttler
 type Throttler struct {
 	requests chan struct{}
-	logger   *logrus.Logger
+	logger   zerolog.Logger
 }
 
 // NewThrottler creates a new throttler
 func NewThrottler(maxConcurrent int) *Throttler {
 	return &Throttler{
 		requests: make(chan struct{}, maxConcurrent),
-		logger:   logrus.New(),
+		logger:   zerolog.New(os.Stdout).With().Timestamp().Logger(),
 	}
 }
 
@@ -124,7 +126,7 @@ func (t *Throttler) Middleware() gin.HandlerFunc {
 			defer func() { <-t.requests }()
 			c.Next()
 		default:
-			t.logger.Warn("Server overloaded")
+			t.logger.Warn().Msg("Server overloaded")
 			c.JSON(http.StatusServiceUnavailable, gin.H{
 				"error": "Server overloaded, please try again later",
 			})
@@ -141,7 +143,7 @@ type AdaptiveRateLimiter struct {
 	currentRPS int
 	loadAvg    float64
 	mu         sync.RWMutex
-	logger     *logrus.Logger
+	logger     zerolog.Logger
 }
 
 // NewAdaptiveRateLimiter creates a new adaptive rate limiter
@@ -151,7 +153,7 @@ func NewAdaptiveRateLimiter(baseRPS, maxRPS, minRPS int) *AdaptiveRateLimiter {
 		maxRPS:     maxRPS,
 		minRPS:     minRPS,
 		currentRPS: baseRPS,
-		logger:     logrus.New(),
+		logger:     zerolog.New(os.Stdout).With().Timestamp().Logger(),
 	}
 }
 
@@ -203,10 +205,10 @@ func (arl *AdaptiveRateLimiter) updateLoadAverage() {
 			}
 			arl.mu.Unlock()
 			
-			arl.logger.WithFields(logrus.Fields{
-				"load":       load,
-				"current_rps": arl.currentRPS,
-			}).Debug("Updated rate limit")
+			arl.logger.Debug().
+				Str("load", fmt.Sprintf("%f", load)).
+				Str("current_rps", fmt.Sprintf("%d", arl.currentRPS)).
+				Msg("Updated rate limit")
 		}
 	}()
 }
@@ -281,7 +283,7 @@ type Manager struct {
 	adaptiveLimiter  *AdaptiveRateLimiter
 	whitelist        *IPWhitelist
 	config           *Config
-	logger           *logrus.Logger
+	logger           zerolog.Logger
 }
 
 // NewManager creates a new rate limiting manager
@@ -289,7 +291,7 @@ func NewManager(config *Config) *Manager {
 	m := &Manager{
 		config:    config,
 		whitelist: NewIPWhitelist(),
-		logger:    logrus.New(),
+		logger:    zerolog.New(os.Stdout).With().Timestamp().Logger(),
 	}
 	
 	if config.Enabled {
