@@ -5,11 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-	
+
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	
+
 	"video-downloader/pkg/models"
 )
 
@@ -24,7 +24,7 @@ func NewSQLite(path string) (*SQLite, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return nil, fmt.Errorf("error creating database directory: %w", err)
 	}
-	
+
 	// Connect to database
 	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
@@ -32,7 +32,7 @@ func NewSQLite(path string) (*SQLite, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to database: %w", err)
 	}
-	
+
 	// Auto migrate
 	if err := db.AutoMigrate(
 		&models.VideoInfo{},
@@ -43,7 +43,7 @@ func NewSQLite(path string) (*SQLite, error) {
 	); err != nil {
 		return nil, fmt.Errorf("error migrating database: %w", err)
 	}
-	
+
 	return &SQLite{db: db}, nil
 }
 
@@ -68,32 +68,32 @@ func (s *SQLite) GetVideoInfo(id string) (*models.VideoInfo, error) {
 func (s *SQLite) ListVideos(filter models.VideoFilter) ([]*models.VideoInfo, error) {
 	var videos []*models.VideoInfo
 	query := s.db.Model(&models.VideoInfo{})
-	
+
 	// Apply filters
 	if filter.Platform != nil {
 		query = query.Where("platform = ?", *filter.Platform)
 	}
-	
+
 	if filter.MediaType != nil {
 		query = query.Where("media_type = ?", *filter.MediaType)
 	}
-	
+
 	if filter.Status != nil {
 		query = query.Where("status = ?", *filter.Status)
 	}
-	
+
 	if filter.AuthorID != nil {
 		query = query.Where("author_id = ?", *filter.AuthorID)
 	}
-	
+
 	if filter.StartDate != nil {
 		query = query.Where("published_at >= ?", *filter.StartDate)
 	}
-	
+
 	if filter.EndDate != nil {
 		query = query.Where("published_at <= ?", *filter.EndDate)
 	}
-	
+
 	// Apply ordering
 	if filter.OrderBy != "" {
 		order := filter.OrderBy
@@ -106,7 +106,7 @@ func (s *SQLite) ListVideos(filter models.VideoFilter) ([]*models.VideoInfo, err
 	} else {
 		query = query.Order("collected_at DESC")
 	}
-	
+
 	// Apply pagination
 	if filter.Limit > 0 {
 		query = query.Limit(filter.Limit)
@@ -114,11 +114,11 @@ func (s *SQLite) ListVideos(filter models.VideoFilter) ([]*models.VideoInfo, err
 	if filter.Offset > 0 {
 		query = query.Offset(filter.Offset)
 	}
-	
+
 	if err := query.Find(&videos).Error; err != nil {
 		return nil, err
 	}
-	
+
 	return videos, nil
 }
 
@@ -151,7 +151,7 @@ func (s *SQLite) UpdateDownloadProgress(id string, progress float64) error {
 	return s.db.Model(&models.DownloadTask{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
-			"progress":  progress,
+			"progress":   progress,
 			"updated_at": time.Now(),
 		}).Error
 }
@@ -185,14 +185,14 @@ func (s *SQLite) Close() error {
 // GetStats returns database statistics
 func (s *SQLite) GetStats() (*models.Stats, error) {
 	stats := &models.Stats{}
-	
+
 	// Total videos
 	var totalVideos int64
 	if err := s.db.Model(&models.VideoInfo{}).Count(&totalVideos).Error; err != nil {
 		return nil, err
 	}
 	stats.TotalVideos = totalVideos
-	
+
 	// Total size
 	var totalSize int64
 	if err := s.db.Model(&models.VideoInfo{}).
@@ -201,7 +201,7 @@ func (s *SQLite) GetStats() (*models.Stats, error) {
 		return nil, err
 	}
 	stats.TotalSize = totalSize
-	
+
 	// Total duration
 	var totalDuration int64
 	if err := s.db.Model(&models.VideoInfo{}).
@@ -210,7 +210,7 @@ func (s *SQLite) GetStats() (*models.Stats, error) {
 		return nil, err
 	}
 	stats.TotalDuration = totalDuration
-	
+
 	// Downloads today
 	var downloadsToday int64
 	today := time.Now().Truncate(24 * time.Hour)
@@ -220,7 +220,7 @@ func (s *SQLite) GetStats() (*models.Stats, error) {
 		return nil, err
 	}
 	stats.DownloadsToday = downloadsToday
-	
+
 	// Failed downloads
 	var failedDownloads int64
 	if err := s.db.Model(&models.VideoInfo{}).
@@ -229,12 +229,12 @@ func (s *SQLite) GetStats() (*models.Stats, error) {
 		return nil, err
 	}
 	stats.FailedDownloads = failedDownloads
-	
+
 	// Calculate success rate
 	if totalVideos > 0 {
 		stats.SuccessRate = float64(totalVideos-failedDownloads) / float64(totalVideos) * 100
 	}
-	
+
 	return stats, nil
 }
 

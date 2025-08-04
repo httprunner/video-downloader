@@ -1,10 +1,10 @@
 package platform
 
 import (
-	"video-downloader/pkg/models"
+	"video-downloader/internal/platform/kuaishou"
 	"video-downloader/internal/platform/tiktok"
 	"video-downloader/internal/platform/xhs"
-	"video-downloader/internal/platform/kuaishou"
+	"video-downloader/pkg/models"
 )
 
 // NewTikTokExtractor creates a new TikTok extractor

@@ -25,7 +25,7 @@ A unified video downloader for TikTok, Xiaohongshu (XHS), and Kuaishou platforms
 ### Build from Source
 
 ```bash
-git clone https://github.com/debugtalk/video-downloader.git
+git clone https://github.com/httprunner/video-downloader.git
 cd video-downloader
 go mod download
 go build -o video-downloader ./cmd/cli
@@ -34,7 +34,7 @@ go build -o video-downloader ./cmd/cli
 ### Install via Go
 
 ```bash
-go install github.com/debugtalk/video-downloader@latest
+go install github.com/httprunner/video-downloader@latest
 ```
 
 ## Configuration

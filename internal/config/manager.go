@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	
-	"github.com/spf13/viper"
+
 	"github.com/rs/zerolog"
-	
+	"github.com/spf13/viper"
+
 	"video-downloader/pkg/models"
 )
 
@@ -31,11 +31,11 @@ func NewManager() *Manager {
 func (m *Manager) Load(configPath string) (*models.Config, error) {
 	// Set default values
 	m.setDefaults()
-	
+
 	// Configure viper
 	m.viper.SetConfigName("config")
 	m.viper.SetConfigType("yaml")
-	
+
 	if configPath != "" {
 		m.viper.AddConfigPath(configPath)
 	} else {
@@ -45,11 +45,11 @@ func (m *Manager) Load(configPath string) (*models.Config, error) {
 		m.viper.AddConfigPath("$HOME/.video-downloader")
 		m.viper.AddConfigPath("/etc/video-downloader")
 	}
-	
+
 	// Enable environment variable support
 	m.viper.AutomaticEnv()
 	m.viper.SetEnvPrefix("VD")
-	
+
 	// Read configuration
 	if err := m.viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
@@ -60,32 +60,32 @@ func (m *Manager) Load(configPath string) (*models.Config, error) {
 			m.logger.Warn().Msgf("Failed to create default config: %v", err)
 		}
 	}
-	
+
 	// Unmarshal configuration
 	if err := m.viper.Unmarshal(m.config); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
-	
+
 	// Ensure directories exist
 	if err := m.ensureDirectories(); err != nil {
 		return nil, fmt.Errorf("error ensuring directories: %w", err)
 	}
-	
+
 	// Configure logger
 	m.configureLogger()
-	
+
 	return m.config, nil
 }
 
 // Save saves configuration to file
 func (m *Manager) Save(configPath string) error {
 	m.viper.Set("config", m.config)
-	
+
 	configFile := filepath.Join(configPath, "config.yaml")
 	if err := m.viper.WriteConfigAs(configFile); err != nil {
 		return fmt.Errorf("error saving config: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -99,7 +99,7 @@ func (m *Manager) UpdateConfig(updates map[string]interface{}) error {
 	for key, value := range updates {
 		m.viper.Set(key, value)
 	}
-	
+
 	return m.viper.Unmarshal(m.config)
 }
 
@@ -110,7 +110,7 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("server.port", 8080)
 	m.viper.SetDefault("server.read_timeout", 30)
 	m.viper.SetDefault("server.write_timeout", 30)
-	
+
 	// Download defaults
 	m.viper.SetDefault("download.max_workers", 5)
 	m.viper.SetDefault("download.chunk_size", 1024*1024) // 1MB
@@ -119,28 +119,28 @@ func (m *Manager) setDefaults() {
 	m.viper.SetDefault("download.save_path", "./downloads")
 	m.viper.SetDefault("download.create_folder", true)
 	m.viper.SetDefault("download.file_naming", "{platform}_{author}_{title}_{id}")
-	
+
 	// Database defaults
 	m.viper.SetDefault("database.type", "sqlite")
 	m.viper.SetDefault("database.path", "./data/video-downloader.db")
 	m.viper.SetDefault("database.max_conns", 10)
-	
+
 	// Log defaults
 	m.viper.SetDefault("log.level", "info")
 	m.viper.SetDefault("log.format", "text")
 	m.viper.SetDefault("log.output", "stdout")
-	
+
 	// Platform defaults
 	m.viper.SetDefault("platforms.tiktok.enabled", true)
 	m.viper.SetDefault("platforms.xhs.enabled", true)
 	m.viper.SetDefault("platforms.kuaishou.enabled", true)
-	
+
 	// Auth defaults
 	m.viper.SetDefault("auth.enabled", true)
 	m.viper.SetDefault("auth.jwt_secret", "your-secret-key-change-this-in-production")
 	m.viper.SetDefault("auth.token_expiry", 24)
 	m.viper.SetDefault("auth.admin_password", "admin123")
-	
+
 	// Rate limit defaults
 	m.viper.SetDefault("rate_limit.enabled", true)
 	m.viper.SetDefault("rate_limit.requests_per_second", 10)
@@ -156,9 +156,9 @@ func (m *Manager) createDefaultConfig() error {
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return fmt.Errorf("error creating config directory: %w", err)
 	}
-	
+
 	configFile := filepath.Join(configDir, "config.yaml")
-	
+
 	// Create default config content
 	defaultConfig := `# Video Downloader Configuration
 
@@ -201,12 +201,12 @@ platforms:
     api_key: ""
     cookie: ""
     user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-  
+
   xhs:
     enabled: true
     cookie: ""
     user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-  
+
   kuaishou:
     enabled: true
     cookie: ""
@@ -228,11 +228,11 @@ rate_limit:
     - "127.0.0.1"
     - "::1"
 `
-	
+
 	if err := os.WriteFile(configFile, []byte(defaultConfig), 0644); err != nil {
 		return fmt.Errorf("error writing default config: %w", err)
 	}
-	
+
 	m.logger.Info().Msgf("Created default config file at: %s", configFile)
 	return nil
 }
@@ -245,13 +245,13 @@ func (m *Manager) ensureDirectories() error {
 		"./logs",
 		"./temp",
 	}
-	
+
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("error creating directory %s: %w", dir, err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -263,14 +263,14 @@ func (m *Manager) configureLogger() {
 		level = zerolog.InfoLevel
 	}
 	zerolog.SetGlobalLevel(level)
-	
+
 	// Set log format
 	if m.config.Log.Format == "json" {
 		// JSON format is default for zerolog
 	} else {
 		m.logger = m.logger.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	}
-	
+
 	// Set log output
 	if m.config.Log.Output != "stdout" {
 		file, err := os.OpenFile(m.config.Log.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)

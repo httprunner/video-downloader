@@ -1,13 +1,16 @@
-.PHONY: build build-cli build-server clean test test-coverage deps run run-server run-cli install install-cli install-server docker-build docker-run
+.PHONY: build build-cli build-server build-tui clean test test-coverage deps run run-server run-cli run-tui install install-cli install-server install-tui docker-build docker-run
 
 # Build targets
-build: build-cli build-server
+build: build-cli build-server build-tui
 
 build-cli:
 	go build -o bin/video-downloader ./cmd/cli
 
 build-server:
 	go build -o bin/video-downloader-server ./cmd/server
+
+build-tui:
+	go build -o bin/video-downloader-tui ./cmd/tui
 
 # Clean build artifacts
 clean:
@@ -36,14 +39,20 @@ run-cli:
 run-server:
 	go run ./cmd/server
 
+run-tui:
+	go run ./cmd/tui
+
 # Install applications
-install: install-cli install-server
+install: install-cli install-server install-tui
 
 install-cli:
 	go install ./cmd/cli
 
 install-server:
 	go install ./cmd/server
+
+install-tui:
+	go install ./cmd/tui
 
 # Docker targets
 docker-build:
@@ -85,6 +94,7 @@ lint:
 
 fmt:
 	go fmt ./...
+	./scripts/clean-whitespace.sh
 
 # Generate documentation
 docs:

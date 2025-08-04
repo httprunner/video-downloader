@@ -7,9 +7,9 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	
+
 	"github.com/spf13/cobra"
-	
+
 	"video-downloader/internal/config"
 	"video-downloader/internal/downloader"
 	"video-downloader/internal/server"
@@ -48,32 +48,32 @@ var downloadCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		url := args[0]
-		
+
 		// Load configuration
 		configManager := config.NewManager()
 		cfg, err := configManager.Load(configPath)
 		if err != nil {
 			return fmt.Errorf("error loading configuration: %w", err)
 		}
-		
+
 		// Initialize storage
 		storage, err := storage.NewSQLite(cfg.Database.Path)
 		if err != nil {
 			return fmt.Errorf("error initializing storage: %w", err)
 		}
 		defer storage.Close()
-		
+
 		// Create download manager
 		dm := downloader.NewManager(cfg, storage)
 		if err := dm.Start(); err != nil {
 			return fmt.Errorf("error starting download manager: %w", err)
 		}
 		defer dm.Stop()
-		
+
 		// Set up signal handling
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		
+
 		// Download options
 		options := &downloader.DownloadOptions{
 			OutputPath: outputPath,
@@ -81,14 +81,14 @@ var downloadCmd = &cobra.Command{
 			Quality:    quality,
 			Progress:   true,
 		}
-		
+
 		// Start download
 		fmt.Printf("Downloading video from: %s\n", url)
 		result, err := dm.Download(url, options)
 		if err != nil {
 			return fmt.Errorf("error downloading video: %w", err)
 		}
-		
+
 		if result.Success {
 			fmt.Printf("✅ Download completed: %s\n", result.Video.FilePath)
 			fmt.Printf("   Size: %s\n", utils.FormatBytes(result.Video.FileSize))
@@ -96,7 +96,7 @@ var downloadCmd = &cobra.Command{
 		} else {
 			fmt.Printf("❌ Download failed: %s\n", result.Error)
 		}
-		
+
 		return nil
 	},
 }
@@ -107,41 +107,41 @@ var batchCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		urlsFile := args[0]
-		
+
 		// Read URLs from file
 		urls, err := readURLsFromFile(urlsFile)
 		if err != nil {
 			return fmt.Errorf("error reading URLs file: %w", err)
 		}
-		
+
 		if len(urls) == 0 {
 			fmt.Println("No URLs found in file")
 			return nil
 		}
-		
+
 		fmt.Printf("Found %d URLs to download\n", len(urls))
-		
+
 		// Load configuration
 		configManager := config.NewManager()
 		cfg, err := configManager.Load(configPath)
 		if err != nil {
 			return fmt.Errorf("error loading configuration: %w", err)
 		}
-		
+
 		// Initialize storage
 		storage, err := storage.NewSQLite(cfg.Database.Path)
 		if err != nil {
 			return fmt.Errorf("error initializing storage: %w", err)
 		}
 		defer storage.Close()
-		
+
 		// Create download manager
 		dm := downloader.NewManager(cfg, storage)
 		if err := dm.Start(); err != nil {
 			return fmt.Errorf("error starting download manager: %w", err)
 		}
 		defer dm.Stop()
-		
+
 		// Download options
 		options := &downloader.DownloadOptions{
 			OutputPath: outputPath,
@@ -149,13 +149,13 @@ var batchCmd = &cobra.Command{
 			Quality:    quality,
 			Progress:   true,
 		}
-		
+
 		// Batch download
 		results, err := dm.DownloadBatch(urls, options)
 		if err != nil {
 			fmt.Printf("⚠️  Some downloads failed: %v\n", err)
 		}
-		
+
 		// Print results
 		success := 0
 		failed := 0
@@ -170,7 +170,7 @@ var batchCmd = &cobra.Command{
 				}
 			}
 		}
-		
+
 		fmt.Printf("\nDownload summary: %d success, %d failed\n", success, failed)
 		return nil
 	},
@@ -182,39 +182,39 @@ var infoCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		url := args[0]
-		
+
 		// Load configuration
 		configManager := config.NewManager()
 		cfg, err := configManager.Load(configPath)
 		if err != nil {
 			return fmt.Errorf("error loading configuration: %w", err)
 		}
-		
+
 		// Initialize storage
 		storage, err := storage.NewSQLite(cfg.Database.Path)
 		if err != nil {
 			return fmt.Errorf("error initializing storage: %w", err)
 		}
 		defer storage.Close()
-		
+
 		// Create download manager
 		dm := downloader.NewManager(cfg, storage)
 		if err := dm.Start(); err != nil {
 			return fmt.Errorf("error starting download manager: %w", err)
 		}
 		defer dm.Stop()
-		
+
 		// Get video info
 		videoInfo, err := dm.GetVideoInfo(url)
 		if err != nil {
 			return fmt.Errorf("error getting video info: %w", err)
 		}
-		
+
 		if videoInfo == nil {
 			fmt.Println("Video not found")
 			return nil
 		}
-		
+
 		// Print video information
 		fmt.Printf("📹 Video Information\n")
 		fmt.Printf("   Title: %s\n", videoInfo.Title)
@@ -225,7 +225,7 @@ var infoCmd = &cobra.Command{
 		fmt.Printf("   Likes: %d\n", videoInfo.LikeCount)
 		fmt.Printf("   Published: %s\n", videoInfo.PublishedAt.Format("2006-01-02 15:04:05"))
 		fmt.Printf("   URL: %s\n", videoInfo.URL)
-		
+
 		return nil
 	},
 }
@@ -240,14 +240,14 @@ var listCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("error loading configuration: %w", err)
 		}
-		
+
 		// Initialize storage
 		storage, err := storage.NewSQLite(cfg.Database.Path)
 		if err != nil {
 			return fmt.Errorf("error initializing storage: %w", err)
 		}
 		defer storage.Close()
-		
+
 		// List videos
 		videos, err := storage.ListVideos(models.VideoFilter{
 			Limit:     50,
@@ -257,12 +257,12 @@ var listCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("error listing videos: %w", err)
 		}
-		
+
 		if len(videos) == 0 {
 			fmt.Println("No videos found")
 			return nil
 		}
-		
+
 		// Print videos
 		fmt.Printf("📚 Downloaded Videos (%d)\n", len(videos))
 		for i, video := range videos {
@@ -273,7 +273,7 @@ var listCmd = &cobra.Command{
 				fmt.Printf("   Downloaded: %s\n", video.DownloadedAt.Format("2006-01-02 15:04:05"))
 			}
 		}
-		
+
 		return nil
 	},
 }
@@ -288,23 +288,23 @@ var serverCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("error loading configuration: %w", err)
 		}
-		
+
 		// Initialize storage
 		storage, err := storage.NewSQLite(cfg.Database.Path)
 		if err != nil {
 			return fmt.Errorf("error initializing storage: %w", err)
 		}
 		defer storage.Close()
-		
+
 		// Create and start server
 		srv := server.NewServer(cfg, storage)
 		if err := srv.Run(); err != nil {
 			return fmt.Errorf("error running server: %w", err)
 		}
-		
+
 		fmt.Printf("🚀 Server started on http://%s:%d\n", cfg.Server.Host, cfg.Server.Port)
 		fmt.Println("Press Ctrl+C to stop the server")
-		
+
 		// The server handles its own signal internally
 		return nil
 	},
@@ -338,7 +338,7 @@ var showConfigCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("error loading configuration: %w", err)
 		}
-		
+
 		fmt.Printf("📋 Current Configuration\n")
 		fmt.Printf("   Server Host: %s\n", cfg.Server.Host)
 		fmt.Printf("   Server Port: %d\n", cfg.Server.Port)
@@ -347,7 +347,7 @@ var showConfigCmd = &cobra.Command{
 		fmt.Printf("   Database Path: %s\n", cfg.Database.Path)
 		fmt.Printf("   Log Level: %s\n", cfg.Log.Level)
 		fmt.Printf("   Proxy Enabled: %v\n", cfg.Proxy.Enabled)
-		
+
 		return nil
 	},
 }
@@ -359,7 +359,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&format, "format", "f", "", "Output format (mp4, mp3, etc.)")
 	rootCmd.PersistentFlags().StringVarP(&quality, "quality", "q", "", "Video quality (hd, sd, etc.)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Verbose output")
-	
+
 	// Add commands
 	rootCmd.AddCommand(downloadCmd)
 	rootCmd.AddCommand(batchCmd)
@@ -367,7 +367,7 @@ func init() {
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(serverCmd)
 	rootCmd.AddCommand(configCmd)
-	
+
 	// Config subcommands
 	configCmd.AddCommand(initConfigCmd)
 	configCmd.AddCommand(showConfigCmd)
@@ -378,7 +378,7 @@ func readURLsFromFile(filename string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Split by lines and filter empty lines
 	lines := strings.Split(string(content), "\n")
 	var urls []string
@@ -388,7 +388,7 @@ func readURLsFromFile(filename string) ([]string, error) {
 			urls = append(urls, line)
 		}
 	}
-	
+
 	return urls, nil
 }
 

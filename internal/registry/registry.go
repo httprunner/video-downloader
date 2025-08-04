@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	
+
 	"video-downloader/internal/platform"
 	"video-downloader/pkg/models"
 )
@@ -29,15 +29,15 @@ func (r *Registry) RegisterExtractor(platform models.Platform, extractor models.
 	if extractor == nil {
 		return fmt.Errorf("extractor cannot be nil")
 	}
-	
+
 	// Register the extractor
 	r.extractors[platform] = extractor
-	
+
 	// Register URL patterns for this platform
 	for _, pattern := range patterns {
 		r.patterns[pattern] = platform
 	}
-	
+
 	return nil
 }
 
@@ -52,19 +52,19 @@ func (r *Registry) RegisterDefaultPlatforms(config *models.Config) error {
 			Cookie:     config.Platforms.TikTok.Cookie,
 			MaxRetries: 3,
 		})
-		
+
 		tiktokPatterns := []string{
 			`https?://(?:www\.)?tiktok\.com/@[^/]+/video/\d+`,
 			`https?://(?:www\.)?tiktok\.com/t/\w+`,
 			`https?://vm\.tiktok\.com/\w+`,
 			`https?://(?:www\.)?tiktok\.com/@[^/]+`,
 		}
-		
+
 		if err := r.RegisterExtractor(models.PlatformTikTok, tiktokExtractor, tiktokPatterns); err != nil {
 			return fmt.Errorf("error registering TikTok extractor: %w", err)
 		}
 	}
-	
+
 	// Register XHS
 	if config.Platforms.XHS.Enabled {
 		xhsExtractor := platform.NewXHSExtractor(&models.ExtractorConfig{
@@ -74,19 +74,19 @@ func (r *Registry) RegisterDefaultPlatforms(config *models.Config) error {
 			Cookie:     config.Platforms.XHS.Cookie,
 			MaxRetries: 3,
 		})
-		
+
 		xhsPatterns := []string{
 			`https?://(?:www\.)?xiaohongshu\.com/explore/[^/]+`,
 			`https?://(?:www\.)?xiaohongshu\.com/discovery/item/[^/]+`,
 			`https?://(?:www\.)?xiaohongshu\.com/user/profile/[^/]+`,
 			`https?://xhslink\.com/[^/]+`,
 		}
-		
+
 		if err := r.RegisterExtractor(models.PlatformXHS, xhsExtractor, xhsPatterns); err != nil {
 			return fmt.Errorf("error registering XHS extractor: %w", err)
 		}
 	}
-	
+
 	// Register Kuaishou
 	if config.Platforms.Kuaishou.Enabled {
 		kuaishouExtractor := platform.NewKuaishouExtractor(&models.ExtractorConfig{
@@ -96,18 +96,18 @@ func (r *Registry) RegisterDefaultPlatforms(config *models.Config) error {
 			Cookie:     config.Platforms.Kuaishou.Cookie,
 			MaxRetries: 3,
 		})
-		
+
 		kuaishouPatterns := []string{
 			`https?://(?:www\.)?kuaishou\.com/short-video/[^/]+`,
 			`https?://(?:www\.)?kuaishou\.com/profile/[^/]+`,
 			`https?://v\.kuaishou\.com/[^/]+`,
 		}
-		
+
 		if err := r.RegisterExtractor(models.PlatformKuaishou, kuaishouExtractor, kuaishouPatterns); err != nil {
 			return fmt.Errorf("error registering Kuaishou extractor: %w", err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -117,7 +117,7 @@ func (r *Registry) GetExtractor(platform models.Platform) (models.PlatformExtrac
 	if !exists {
 		return nil, fmt.Errorf("no extractor registered for platform: %s", platform)
 	}
-	
+
 	return extractor, nil
 }
 
@@ -127,12 +127,12 @@ func (r *Registry) GetExtractorForURL(url string) (models.PlatformExtractor, mod
 	if err != nil {
 		return nil, "", err
 	}
-	
+
 	extractor, err := r.GetExtractor(platform)
 	if err != nil {
 		return nil, "", err
 	}
-	
+
 	return extractor, platform, nil
 }
 
@@ -144,7 +144,7 @@ func (r *Registry) DetectPlatform(url string) (models.Platform, error) {
 			return platform, nil
 		}
 	}
-	
+
 	// Fallback to domain-based detection
 	return r.detectPlatformByDomain(url)
 }
@@ -152,7 +152,7 @@ func (r *Registry) DetectPlatform(url string) (models.Platform, error) {
 // detectPlatformByDomain detects platform by domain name
 func (r *Registry) detectPlatformByDomain(url string) (models.Platform, error) {
 	lowerURL := strings.ToLower(url)
-	
+
 	switch {
 	case strings.Contains(lowerURL, "tiktok.com"):
 		return models.PlatformTikTok, nil
@@ -224,16 +224,16 @@ func (r *Registry) UpdateExtractorConfig(platform models.Platform, config *model
 	if !exists {
 		return fmt.Errorf("no extractor registered for platform: %s", platform)
 	}
-	
+
 	// Note: This is a simplified approach. In a real implementation,
 	// you might need to recreate the extractor with the new config
 	// or provide a method to update the config on the existing extractor.
-	
+
 	// For now, we'll log that config update is not implemented
 	if r.logger != nil {
 		// This would be: r.logger.Debugf("Config update for platform %s not implemented", platform)
 	}
-	
+
 	return nil
 }
 
@@ -262,7 +262,7 @@ func CreateKuaishouExtractor(config *models.ExtractorConfig) models.PlatformExtr
 // PlatformInfo contains information about a registered platform
 type PlatformInfo struct {
 	Name        models.Platform
-	Enabled      bool
+	Enabled     bool
 	Patterns    []string
 	Description string
 }
@@ -270,16 +270,16 @@ type PlatformInfo struct {
 // GetPlatformInfo returns information about all registered platforms
 func (r *Registry) GetPlatformInfo() []PlatformInfo {
 	var info []PlatformInfo
-	
+
 	for platform := range r.extractors {
 		patterns := r.GetPlatformPatterns(platform)
-		
+
 		platformInfo := PlatformInfo{
 			Name:     platform,
 			Enabled:  true,
 			Patterns: patterns,
 		}
-		
+
 		// Add description based on platform
 		switch platform {
 		case models.PlatformTikTok:
@@ -291,9 +291,9 @@ func (r *Registry) GetPlatformInfo() []PlatformInfo {
 		default:
 			platformInfo.Description = "Unknown platform"
 		}
-		
+
 		info = append(info, platformInfo)
 	}
-	
+
 	return info
 }

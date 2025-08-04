@@ -12,39 +12,39 @@ import (
 	"strings"
 	"sync"
 	"time"
-	
+
 	"github.com/rs/zerolog"
 )
 
 // DownloadManager manages concurrent downloads
 type DownloadManager struct {
-	client      *HTTPClient
-	logger      zerolog.Logger
-	maxWorkers  int
-	chunkSize   int64
-	retryCount  int
-	tempDir     string
-	activeJobs  map[string]*DownloadJob
-	jobsMutex   sync.Mutex
-	progress    map[string]float64
-	progressMu  sync.Mutex
+	client     *HTTPClient
+	logger     zerolog.Logger
+	maxWorkers int
+	chunkSize  int64
+	retryCount int
+	tempDir    string
+	activeJobs map[string]*DownloadJob
+	jobsMutex  sync.Mutex
+	progress   map[string]float64
+	progressMu sync.Mutex
 }
 
 // DownloadJob represents a single download job
 type DownloadJob struct {
-	ID          string
-	URL         string
-	FilePath    string
-	FileSize    int64
-	Downloaded  int64
-	Speed       float64
-	ETA         time.Duration
-	Status      string
-	Error       error
-	StartTime   time.Time
-	EndTime     *time.Time
-	CancelFunc  context.CancelFunc
-	Progress    chan float64
+	ID         string
+	URL        string
+	FilePath   string
+	FileSize   int64
+	Downloaded int64
+	Speed      float64
+	ETA        time.Duration
+	Status     string
+	Error      error
+	StartTime  time.Time
+	EndTime    *time.Time
+	CancelFunc context.CancelFunc
+	Progress   chan float64
 }
 
 // DownloadConfig represents download configuration
@@ -61,7 +61,7 @@ func NewDownloadManager(config DownloadConfig) *DownloadManager {
 	if config.TempDir == "" {
 		config.TempDir = "./temp"
 	}
-	
+
 	return &DownloadManager{
 		client:     NewHTTPClient(ClientConfig{Timeout: config.Timeout}),
 		logger:     zerolog.New(os.Stdout).With().Timestamp().Logger(),
@@ -85,27 +85,27 @@ func (dm *DownloadManager) Download(url, filePath string, progressChan chan<- fl
 		StartTime: time.Now(),
 		Progress:  make(chan float64),
 	}
-	
+
 	// Add to active jobs
 	dm.jobsMutex.Lock()
 	dm.activeJobs[job.ID] = job
 	dm.jobsMutex.Unlock()
-	
+
 	// Start download in goroutine
 	go dm.downloadFile(job, progressChan)
-	
+
 	return nil
 }
 
 // downloadFile performs the actual file download
 func (dm *DownloadManager) downloadFile(job *DownloadJob, progressChan chan<- float64) {
 	defer close(job.Progress)
-	
+
 	// Create context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 	job.CancelFunc = cancel
 	defer cancel()
-	
+
 	// Get file size
 	size, err := dm.client.GetFileSize(job.URL)
 	if err != nil {
@@ -113,10 +113,10 @@ func (dm *DownloadManager) downloadFile(job *DownloadJob, progressChan chan<- fl
 		job.Status = "failed"
 		return
 	}
-	
+
 	job.FileSize = size
 	job.Status = "downloading"
-	
+
 	// Create temp file
 	tempDir := dm.tempDir
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
@@ -124,7 +124,7 @@ func (dm *DownloadManager) downloadFile(job *DownloadJob, progressChan chan<- fl
 		job.Status = "failed"
 		return
 	}
-	
+
 	tempFile := filepath.Join(tempDir, job.ID+".tmp")
 	file, err := os.OpenFile(tempFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
@@ -133,7 +133,7 @@ func (dm *DownloadManager) downloadFile(job *DownloadJob, progressChan chan<- fl
 		return
 	}
 	defer file.Close()
-	
+
 	// Get current file size (for resume)
 	stat, err := file.Stat()
 	if err != nil {
@@ -141,9 +141,9 @@ func (dm *DownloadManager) downloadFile(job *DownloadJob, progressChan chan<- fl
 		job.Status = "failed"
 		return
 	}
-	
+
 	job.Downloaded = stat.Size()
-	
+
 	// Create request with range header
 	req, err := http.NewRequestWithContext(ctx, "GET", job.URL, nil)
 	if err != nil {
@@ -151,14 +151,14 @@ func (dm *DownloadManager) downloadFile(job *DownloadJob, progressChan chan<- fl
 		job.Status = "failed"
 		return
 	}
-	
+
 	if job.Downloaded > 0 {
 		req.Header.Set("Range", fmt.Sprintf("bytes=%d-", job.Downloaded))
 	}
-	
+
 	// Set common headers
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-	
+
 	// Make request
 	resp, err := dm.client.client.Do(req)
 	if err != nil {
@@ -167,14 +167,14 @@ func (dm *DownloadManager) downloadFile(job *DownloadJob, progressChan chan<- fl
 		return
 	}
 	defer resp.Body.Close()
-	
+
 	// Check response status
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
 		job.Error = fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 		job.Status = "failed"
 		return
 	}
-	
+
 	// Create progress reader
 	reader := &ProgressReader{
 		Reader:    resp.Body,
@@ -186,11 +186,11 @@ func (dm *DownloadManager) downloadFile(job *DownloadJob, progressChan chan<- fl
 			dm.progressMu.Lock()
 			dm.progress[job.ID] = progress
 			dm.progressMu.Unlock()
-			
+
 			if progressChan != nil {
 				progressChan <- progress
 			}
-			
+
 			// Calculate speed and ETA
 			elapsed := time.Since(job.StartTime)
 			if elapsed > 0 {
@@ -202,7 +202,7 @@ func (dm *DownloadManager) downloadFile(job *DownloadJob, progressChan chan<- fl
 			}
 		},
 	}
-	
+
 	// Copy file
 	startTime := time.Now()
 	if _, err := io.Copy(file, reader); err != nil {
@@ -210,25 +210,25 @@ func (dm *DownloadManager) downloadFile(job *DownloadJob, progressChan chan<- fl
 		job.Status = "failed"
 		return
 	}
-	
+
 	// Move file to final location
 	if err := os.MkdirAll(filepath.Dir(job.FilePath), 0755); err != nil {
 		job.Error = fmt.Errorf("error creating directory: %w", err)
 		job.Status = "failed"
 		return
 	}
-	
+
 	if err := os.Rename(tempFile, job.FilePath); err != nil {
 		job.Error = fmt.Errorf("error moving file: %w", err)
 		job.Status = "failed"
 		return
 	}
-	
+
 	// Update job status
 	job.Status = "completed"
 	now := time.Now()
 	job.EndTime = &now
-	
+
 	dm.logger.Info().
 		Str("job_id", job.ID).
 		Str("file_size", FormatBytes(job.FileSize)).
@@ -241,12 +241,12 @@ func (dm *DownloadManager) downloadFile(job *DownloadJob, progressChan chan<- fl
 func (dm *DownloadManager) GetJobStatus(jobID string) (*DownloadJob, bool) {
 	dm.jobsMutex.Lock()
 	defer dm.jobsMutex.Unlock()
-	
+
 	job, exists := dm.activeJobs[jobID]
 	if !exists {
 		return nil, false
 	}
-	
+
 	return job, true
 }
 
@@ -254,16 +254,16 @@ func (dm *DownloadManager) GetJobStatus(jobID string) (*DownloadJob, bool) {
 func (dm *DownloadManager) CancelJob(jobID string) error {
 	dm.jobsMutex.Lock()
 	defer dm.jobsMutex.Unlock()
-	
+
 	job, exists := dm.activeJobs[jobID]
 	if !exists {
 		return fmt.Errorf("job not found: %s", jobID)
 	}
-	
+
 	if job.CancelFunc != nil {
 		job.CancelFunc()
 	}
-	
+
 	job.Status = "cancelled"
 	return nil
 }
@@ -272,12 +272,12 @@ func (dm *DownloadManager) CancelJob(jobID string) error {
 func (dm *DownloadManager) GetActiveJobs() []*DownloadJob {
 	dm.jobsMutex.Lock()
 	defer dm.jobsMutex.Unlock()
-	
+
 	jobs := make([]*DownloadJob, 0, len(dm.activeJobs))
 	for _, job := range dm.activeJobs {
 		jobs = append(jobs, job)
 	}
-	
+
 	return jobs
 }
 
@@ -296,14 +296,14 @@ func (pr *ProgressReader) Read(p []byte) (n int, err error) {
 	n, err = pr.Reader.Read(p)
 	if n > 0 {
 		pr.Completed += int64(n)
-		
+
 		// Report progress
 		if pr.OnProgress != nil && (pr.Completed-pr.lastReport) >= pr.reportEvery {
 			pr.OnProgress(pr.Completed)
 			pr.lastReport = pr.Completed
 		}
 	}
-	
+
 	return n, err
 }
 
@@ -338,16 +338,16 @@ func (md *M3U8Downloader) DownloadM3U8(m3u8URL, outputPath string, progressChan 
 		return fmt.Errorf("error downloading M3U8 playlist: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-	
+
 	// Parse M3U8 playlist
 	scanner := bufio.NewScanner(resp.Body)
 	var segments []string
 	var baseURI = m3u8URL[:strings.LastIndex(m3u8URL, "/")+1]
-	
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" && !strings.HasPrefix(line, "#") {
@@ -358,32 +358,32 @@ func (md *M3U8Downloader) DownloadM3U8(m3u8URL, outputPath string, progressChan 
 			}
 		}
 	}
-	
+
 	if len(segments) == 0 {
 		return fmt.Errorf("no segments found in M3U8 playlist")
 	}
-	
+
 	// Create temp directory
 	tempDir := filepath.Join(md.tempDir, "m3u8_"+strconv.FormatInt(time.Now().Unix(), 10))
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		return fmt.Errorf("error creating temp directory: %w", err)
 	}
 	defer os.RemoveAll(tempDir)
-	
+
 	// Download segments
 	segmentFiles := make([]string, len(segments))
 	sem := make(chan struct{}, md.maxWorkers)
 	var wg sync.WaitGroup
 	var downloadErrors []error
 	var errorsMu sync.Mutex
-	
+
 	for i, segmentURL := range segments {
 		wg.Add(1)
 		go func(index int, url string) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			
+
 			segmentFile := filepath.Join(tempDir, fmt.Sprintf("segment_%04d.ts", index))
 			if err := md.downloadSegment(url, segmentFile); err != nil {
 				errorsMu.Lock()
@@ -393,7 +393,7 @@ func (md *M3U8Downloader) DownloadM3U8(m3u8URL, outputPath string, progressChan 
 				return
 			}
 			segmentFiles[index] = segmentFile
-			
+
 			// Report progress
 			if progressChan != nil {
 				progress := float64(index+1) / float64(len(segments)) * 100
@@ -401,13 +401,13 @@ func (md *M3U8Downloader) DownloadM3U8(m3u8URL, outputPath string, progressChan 
 			}
 		}(i, segmentURL)
 	}
-	
+
 	wg.Wait()
-	
+
 	if len(downloadErrors) > 0 {
 		return fmt.Errorf("errors occurred while downloading segments: %v", downloadErrors)
 	}
-	
+
 	// Merge segments
 	return md.mergeSegments(segmentFiles, outputPath)
 }
@@ -419,17 +419,17 @@ func (md *M3U8Downloader) downloadSegment(url, filePath string) error {
 		return fmt.Errorf("error downloading segment: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-	
+
 	file, err := os.Create(filePath)
 	if err != nil {
 		return fmt.Errorf("error creating segment file: %w", err)
 	}
 	defer file.Close()
-	
+
 	_, err = io.Copy(file, resp.Body)
 	return err
 }
@@ -441,19 +441,19 @@ func (md *M3U8Downloader) mergeSegments(segmentFiles []string, outputPath string
 		return fmt.Errorf("error creating output file: %w", err)
 	}
 	defer output.Close()
-	
+
 	for _, segmentFile := range segmentFiles {
 		segment, err := os.Open(segmentFile)
 		if err != nil {
 			return fmt.Errorf("error opening segment file: %w", err)
 		}
-		
+
 		if _, err := io.Copy(output, segment); err != nil {
 			segment.Close()
 			return fmt.Errorf("error copying segment: %w", err)
 		}
 		segment.Close()
 	}
-	
+
 	return nil
 }

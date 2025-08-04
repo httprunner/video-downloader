@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
-	
+
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"golang.org/x/time/rate"
@@ -16,8 +16,8 @@ import (
 // RateLimiter represents a rate limiter
 type RateLimiter struct {
 	visitors map[string]*Visitor
-	mu      sync.RWMutex
-	logger  zerolog.Logger
+	mu       sync.RWMutex
+	logger   zerolog.Logger
 }
 
 // Visitor represents a visitor with rate limiting info
@@ -37,35 +37,35 @@ func NewRateLimiter() *RateLimiter {
 // Middleware creates a rate limiting middleware
 func (rl *RateLimiter) Middleware(rps int, burst int) gin.HandlerFunc {
 	go rl.cleanupVisitors()
-	
+
 	return func(c *gin.Context) {
 		// Get identifier for rate limiting
 		ip := c.ClientIP()
-		
+
 		// Check for API key in header
 		if apiKey := c.GetHeader("X-API-Key"); apiKey != "" {
 			ip = "api_key:" + apiKey
 		}
-		
+
 		// Get limiter for this visitor
 		limiter := rl.getLimiter(ip, rps, burst)
-		
+
 		// Check if request is allowed
 		if !limiter.Allow() {
 			rl.logger.Warn().Str("ip", ip).Msg("Rate limit exceeded")
 			c.JSON(http.StatusTooManyRequests, gin.H{
-				"error": "Rate limit exceeded",
+				"error":       "Rate limit exceeded",
 				"retry_after": "1s",
 			})
 			c.Abort()
 			return
 		}
-		
+
 		// Add rate limit headers
 		c.Header("X-RateLimit-Limit", strconv.Itoa(rps))
 		c.Header("X-RateLimit-Remaining", strconv.Itoa(int(limiter.Tokens())))
 		c.Header("X-RateLimit-Reset", "1s")
-		
+
 		c.Next()
 	}
 }
@@ -74,7 +74,7 @@ func (rl *RateLimiter) Middleware(rps int, burst int) gin.HandlerFunc {
 func (rl *RateLimiter) getLimiter(ip string, rps int, burst int) *rate.Limiter {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
-	
+
 	v, exists := rl.visitors[ip]
 	if !exists {
 		limiter := rate.NewLimiter(rate.Limit(rps), burst)
@@ -84,7 +84,7 @@ func (rl *RateLimiter) getLimiter(ip string, rps int, burst int) *rate.Limiter {
 		}
 		return limiter
 	}
-	
+
 	v.lastSeen = time.Now()
 	return v.limiter
 }
@@ -93,7 +93,7 @@ func (rl *RateLimiter) getLimiter(ip string, rps int, burst int) *rate.Limiter {
 func (rl *RateLimiter) cleanupVisitors() {
 	for {
 		time.Sleep(time.Hour)
-		
+
 		rl.mu.Lock()
 		for ip, v := range rl.visitors {
 			if time.Since(v.lastSeen) > time.Hour {
@@ -160,20 +160,20 @@ func NewAdaptiveRateLimiter(baseRPS, maxRPS, minRPS int) *AdaptiveRateLimiter {
 // Middleware creates an adaptive rate limiting middleware
 func (arl *AdaptiveRateLimiter) Middleware() gin.HandlerFunc {
 	arl.updateLoadAverage()
-	
+
 	limiter := NewRateLimiter()
-	
+
 	return func(c *gin.Context) {
 		arl.mu.RLock()
 		currentRPS := arl.currentRPS
 		arl.mu.RUnlock()
-		
+
 		// Use current RPS with some burst
 		burst := currentRPS * 2
 		if burst > 100 {
 			burst = 100
 		}
-		
+
 		// Apply rate limiting
 		limiter.Middleware(currentRPS, burst)(c)
 	}
@@ -184,14 +184,14 @@ func (arl *AdaptiveRateLimiter) updateLoadAverage() {
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
-		
+
 		for range ticker.C {
 			// Simulate load average (in real implementation, this would use actual metrics)
 			load := arl.calculateLoad()
-			
+
 			arl.mu.Lock()
 			arl.loadAvg = load
-			
+
 			// Adjust RPS based on load
 			if load > 0.8 {
 				// High load, reduce rate limit
@@ -204,7 +204,7 @@ func (arl *AdaptiveRateLimiter) updateLoadAverage() {
 				arl.currentRPS = arl.maxRPS
 			}
 			arl.mu.Unlock()
-			
+
 			arl.logger.Debug().
 				Str("load", fmt.Sprintf("%f", load)).
 				Str("current_rps", fmt.Sprintf("%d", arl.currentRPS)).
@@ -268,22 +268,22 @@ func (w *IPWhitelist) WhitelistMiddleware() gin.HandlerFunc {
 
 // Config represents rate limiting configuration
 type Config struct {
-	Enabled          bool `mapstructure:"enabled" yaml:"enabled"`
-	RequestsPerSecond int `mapstructure:"requests_per_second" yaml:"requests_per_second"`
-	Burst           int  `mapstructure:"burst" yaml:"burst"`
-	MaxConcurrent   int  `mapstructure:"max_concurrent" yaml:"max_concurrent"`
-	Adaptive        bool `mapstructure:"adaptive" yaml:"adaptive"`
-	WhitelistedIPs  []string `mapstructure:"whitelisted_ips" yaml:"whitelisted_ips"`
+	Enabled           bool     `mapstructure:"enabled" yaml:"enabled"`
+	RequestsPerSecond int      `mapstructure:"requests_per_second" yaml:"requests_per_second"`
+	Burst             int      `mapstructure:"burst" yaml:"burst"`
+	MaxConcurrent     int      `mapstructure:"max_concurrent" yaml:"max_concurrent"`
+	Adaptive          bool     `mapstructure:"adaptive" yaml:"adaptive"`
+	WhitelistedIPs    []string `mapstructure:"whitelisted_ips" yaml:"whitelisted_ips"`
 }
 
 // Manager manages rate limiting and throttling
 type Manager struct {
-	rateLimiter      *RateLimiter
-	throttler        *Throttler
-	adaptiveLimiter  *AdaptiveRateLimiter
-	whitelist        *IPWhitelist
-	config           *Config
-	logger           zerolog.Logger
+	rateLimiter     *RateLimiter
+	throttler       *Throttler
+	adaptiveLimiter *AdaptiveRateLimiter
+	whitelist       *IPWhitelist
+	config          *Config
+	logger          zerolog.Logger
 }
 
 // NewManager creates a new rate limiting manager
@@ -293,11 +293,11 @@ func NewManager(config *Config) *Manager {
 		whitelist: NewIPWhitelist(),
 		logger:    zerolog.New(os.Stdout).With().Timestamp().Logger(),
 	}
-	
+
 	if config.Enabled {
 		m.rateLimiter = NewRateLimiter()
 		m.throttler = NewThrottler(config.MaxConcurrent)
-		
+
 		if config.Adaptive {
 			m.adaptiveLimiter = NewAdaptiveRateLimiter(
 				config.RequestsPerSecond,
@@ -305,13 +305,13 @@ func NewManager(config *Config) *Manager {
 				config.RequestsPerSecond/2,
 			)
 		}
-		
+
 		// Add whitelisted IPs
 		for _, ip := range config.WhitelistedIPs {
 			m.whitelist.Add(ip)
 		}
 	}
-	
+
 	return m
 }
 
@@ -320,11 +320,11 @@ func (m *Manager) Middleware() gin.HandlerFunc {
 	if !m.config.Enabled {
 		return func(c *gin.Context) { c.Next() }
 	}
-	
+
 	if m.config.Adaptive {
 		return m.adaptiveLimiter.Middleware()
 	}
-	
+
 	// Combine rate limiting and throttling
 	return gin.HandlerFunc(func(c *gin.Context) {
 		// Check whitelist first
@@ -332,13 +332,13 @@ func (m *Manager) Middleware() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		
+
 		// Apply throttling
 		m.throttler.Middleware()(c)
 		if c.IsAborted() {
 			return
 		}
-		
+
 		// Apply rate limiting
 		m.rateLimiter.Middleware(
 			m.config.RequestsPerSecond,

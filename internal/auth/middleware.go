@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	
+
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
-	
+
 	"video-downloader/pkg/models"
 )
 
@@ -35,7 +35,7 @@ func (m *AuthMiddleware) Required() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		
+
 		// Extract token from Bearer format
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		if tokenString == authHeader {
@@ -43,7 +43,7 @@ func (m *AuthMiddleware) Required() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		
+
 		// Validate token
 		user, err := m.authService.ValidateToken(tokenString)
 		if err != nil {
@@ -52,7 +52,7 @@ func (m *AuthMiddleware) Required() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		
+
 		// Set user in context
 		c.Set("user", user)
 		c.Next()
@@ -68,14 +68,14 @@ func (m *AuthMiddleware) Optional() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		
+
 		// Extract token from Bearer format
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		if tokenString == authHeader {
 			c.Next()
 			return
 		}
-		
+
 		// Validate token
 		user, err := m.authService.ValidateToken(tokenString)
 		if err != nil {
@@ -83,7 +83,7 @@ func (m *AuthMiddleware) Optional() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		
+
 		// Set user in context
 		c.Set("user", user)
 		c.Next()
@@ -98,7 +98,7 @@ func (m *AuthMiddleware) RoleRequired(roles ...string) gin.HandlerFunc {
 		if c.IsAborted() {
 			return
 		}
-		
+
 		// Check role
 		user, exists := c.Get("user")
 		if !exists {
@@ -106,10 +106,10 @@ func (m *AuthMiddleware) RoleRequired(roles ...string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		
+
 		u := user.(*models.User)
 		userRole := u.Role
-		
+
 		// Check if user has required role
 		for _, role := range roles {
 			if userRole == role {
@@ -117,7 +117,7 @@ func (m *AuthMiddleware) RoleRequired(roles ...string) gin.HandlerFunc {
 				return
 			}
 		}
-		
+
 		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
 		c.Abort()
 	}
@@ -129,7 +129,7 @@ func GetUser(c *gin.Context) (*models.User, bool) {
 	if !exists {
 		return nil, false
 	}
-	
+
 	u, ok := user.(*models.User)
 	return u, ok
 }

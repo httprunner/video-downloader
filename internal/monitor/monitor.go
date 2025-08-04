@@ -14,31 +14,31 @@ import (
 // Metrics represents all the application metrics
 type Metrics struct {
 	// Download metrics
-	DownloadsTotal      *prometheus.CounterVec
-	DownloadsSuccess    *prometheus.CounterVec
-	DownloadsFailed     *prometheus.CounterVec
-	DownloadDuration    *prometheus.HistogramVec
-	DownloadSize        *prometheus.HistogramVec
-	
+	DownloadsTotal   *prometheus.CounterVec
+	DownloadsSuccess *prometheus.CounterVec
+	DownloadsFailed  *prometheus.CounterVec
+	DownloadDuration *prometheus.HistogramVec
+	DownloadSize     *prometheus.HistogramVec
+
 	// Platform metrics
-	PlatformRequests    *prometheus.CounterVec
-	PlatformErrors      *prometheus.CounterVec
-	
+	PlatformRequests *prometheus.CounterVec
+	PlatformErrors   *prometheus.CounterVec
+
 	// System metrics
-	Goroutines          prometheus.Gauge
-	MemoryUsage         prometheus.Gauge
-	
+	Goroutines  prometheus.Gauge
+	MemoryUsage prometheus.Gauge
+
 	// Storage metrics
-	StorageOperations   *prometheus.CounterVec
-	StorageDuration     *prometheus.HistogramVec
-	
+	StorageOperations *prometheus.CounterVec
+	StorageDuration   *prometheus.HistogramVec
+
 	// Active downloads
-	ActiveDownloads     prometheus.Gauge
-	QueueSize           prometheus.Gauge
-	
+	ActiveDownloads prometheus.Gauge
+	QueueSize       prometheus.Gauge
+
 	// Custom metrics
-	CustomMetrics       map[string]prometheus.Metric
-	mutex               sync.RWMutex
+	CustomMetrics map[string]prometheus.Metric
+	mutex         sync.RWMutex
 }
 
 // NewMetrics creates a new metrics instance
@@ -51,7 +51,7 @@ func NewMetrics() *Metrics {
 			},
 			[]string{"platform", "format"},
 		),
-		
+
 		DownloadsSuccess: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "video_downloader_downloads_success_total",
@@ -59,7 +59,7 @@ func NewMetrics() *Metrics {
 			},
 			[]string{"platform", "format"},
 		),
-		
+
 		DownloadsFailed: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "video_downloader_downloads_failed_total",
@@ -67,7 +67,7 @@ func NewMetrics() *Metrics {
 			},
 			[]string{"platform", "format", "error_type"},
 		),
-		
+
 		DownloadDuration: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "video_downloader_download_duration_seconds",
@@ -76,7 +76,7 @@ func NewMetrics() *Metrics {
 			},
 			[]string{"platform", "format"},
 		),
-		
+
 		DownloadSize: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "video_downloader_download_size_bytes",
@@ -85,7 +85,7 @@ func NewMetrics() *Metrics {
 			},
 			[]string{"platform", "format"},
 		),
-		
+
 		PlatformRequests: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "video_downloader_platform_requests_total",
@@ -93,7 +93,7 @@ func NewMetrics() *Metrics {
 			},
 			[]string{"platform", "endpoint"},
 		),
-		
+
 		PlatformErrors: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "video_downloader_platform_errors_total",
@@ -101,17 +101,17 @@ func NewMetrics() *Metrics {
 			},
 			[]string{"platform", "endpoint", "error_type"},
 		),
-		
+
 		Goroutines: promauto.NewGauge(prometheus.GaugeOpts{
 			Name: "video_downloader_goroutines",
 			Help: "Number of goroutines",
 		}),
-		
+
 		MemoryUsage: promauto.NewGauge(prometheus.GaugeOpts{
 			Name: "video_downloader_memory_usage_bytes",
 			Help: "Memory usage in bytes",
 		}),
-		
+
 		StorageOperations: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "video_downloader_storage_operations_total",
@@ -119,7 +119,7 @@ func NewMetrics() *Metrics {
 			},
 			[]string{"operation", "status"},
 		),
-		
+
 		StorageDuration: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "video_downloader_storage_duration_seconds",
@@ -128,27 +128,27 @@ func NewMetrics() *Metrics {
 			},
 			[]string{"operation"},
 		),
-		
+
 		ActiveDownloads: promauto.NewGauge(prometheus.GaugeOpts{
 			Name: "video_downloader_active_downloads",
 			Help: "Number of active downloads",
 		}),
-		
+
 		QueueSize: promauto.NewGauge(prometheus.GaugeOpts{
 			Name: "video_downloader_queue_size",
 			Help: "Number of items in download queue",
 		}),
-		
+
 		CustomMetrics: make(map[string]prometheus.Metric),
 	}
 }
 
 // Monitor represents the monitoring system
 type Monitor struct {
-	metrics     *Metrics
-	logger      zerolog.Logger
-	stopChan    chan struct{}
-	wg          sync.WaitGroup
+	metrics  *Metrics
+	logger   zerolog.Logger
+	stopChan chan struct{}
+	wg       sync.WaitGroup
 }
 
 // NewMonitor creates a new monitor instance
@@ -164,7 +164,7 @@ func NewMonitor() *Monitor {
 func (m *Monitor) Start() {
 	m.wg.Add(1)
 	go m.collectSystemMetrics()
-	
+
 	m.logger.Info().Msg("Monitoring system started")
 }
 
@@ -172,28 +172,28 @@ func (m *Monitor) Start() {
 func (m *Monitor) Stop() {
 	close(m.stopChan)
 	m.wg.Wait()
-	
+
 	m.logger.Info().Msg("Monitoring system stopped")
 }
 
 // collectSystemMetrics collects system metrics periodically
 func (m *Monitor) collectSystemMetrics() {
 	defer m.wg.Done()
-	
+
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
 			// Update goroutine count
 			m.metrics.Goroutines.Set(float64(runtime.NumGoroutine()))
-			
+
 			// Update memory usage
 			var memStats runtime.MemStats
 			runtime.ReadMemStats(&memStats)
 			m.metrics.MemoryUsage.Set(float64(memStats.Alloc))
-			
+
 		case <-m.stopChan:
 			return
 		}
@@ -246,7 +246,7 @@ func (m *Monitor) UpdateQueueSize(size int) {
 func (m *Monitor) AddCustomMetric(name string, metric prometheus.Metric) {
 	m.metrics.mutex.Lock()
 	defer m.metrics.mutex.Unlock()
-	
+
 	m.metrics.CustomMetrics[name] = metric
 }
 
@@ -269,12 +269,12 @@ func (m *Monitor) SetLogger(logger zerolog.Logger) {
 func (m *Monitor) HealthCheck() map[string]interface{} {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
-	
+
 	return map[string]interface{}{
-		"goroutines":      runtime.NumGoroutine(),
-		"memory_usage":    memStats.Alloc,
-		"memory_sys":      memStats.Sys,
-		"gc_cycles":       memStats.NumGC,
+		"goroutines":   runtime.NumGoroutine(),
+		"memory_usage": memStats.Alloc,
+		"memory_sys":   memStats.Sys,
+		"gc_cycles":    memStats.NumGC,
 	}
 }
 

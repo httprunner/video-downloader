@@ -9,71 +9,71 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	
+
 	"github.com/rs/zerolog"
 	"golang.org/x/net/html"
-	
+
 	"video-downloader/internal/utils"
 	"video-downloader/pkg/models"
 )
 
 // xhsExtractor implements the PlatformExtractor interface for XHS (Xiaohongshu)
 type xhsExtractor struct {
-	client     *utils.HTTPClient
-	config     *models.ExtractorConfig
-	logger     zerolog.Logger
-	userAgent  string
-	cookie     string
+	client    *utils.HTTPClient
+	config    *models.ExtractorConfig
+	logger    zerolog.Logger
+	userAgent string
+	cookie    string
 }
 
 // XHSNote represents XHS note data
 type XHSNote struct {
-	ID           string      `json:"id"`
-	Title        string      `json:"title"`
-	Desc         string      `json:"desc"`
-	Type         string      `json:"type"`
-	CreateTime   int64       `json:"create_time"`
-	User         XHSUser     `json:"user"`
-	Images       []XHSImage  `json:"images"`
-	Video        XHSVideo    `json:"video"`
-	Tags         []string    `json:"tags"`
+	ID           string       `json:"id"`
+	Title        string       `json:"title"`
+	Desc         string       `json:"desc"`
+	Type         string       `json:"type"`
+	CreateTime   int64        `json:"create_time"`
+	User         XHSUser      `json:"user"`
+	Images       []XHSImage   `json:"images"`
+	Video        XHSVideo     `json:"video"`
+	Tags         []string     `json:"tags"`
 	InteractInfo InteractInfo `json:"interact_info"`
 }
 
 type XHSUser struct {
-	ID          string `json:"id"`
-	Nickname    string `json:"nickname"`
-	Avatar      string `json:"avatar"`
-	Desc        string `json:"desc"`
-	Gender      string `json:"gender"`
-	Level       int    `json:"level"`
-	Followers   int    `json:"fans"`
-	Following   int    `json:"follows"`
-	NotesCount  int    `json:"notes_count"`
-	IPLocation  string `json:"ip_location"`
+	ID         string `json:"id"`
+	Nickname   string `json:"nickname"`
+	Avatar     string `json:"avatar"`
+	Desc       string `json:"desc"`
+	Gender     string `json:"gender"`
+	Level      int    `json:"level"`
+	Followers  int    `json:"fans"`
+	Following  int    `json:"follows"`
+	NotesCount int    `json:"notes_count"`
+	IPLocation string `json:"ip_location"`
 }
 
 type XHSImage struct {
-	URL         string `json:"url"`
-	URLDefault  string `json:"url_default"`
-	Width       int    `json:"width"`
-	Height      int    `json:"height"`
-	FileSize    int64  `json:"file_size"`
+	URL        string `json:"url"`
+	URLDefault string `json:"url_default"`
+	Width      int    `json:"width"`
+	Height     int    `json:"height"`
+	FileSize   int64  `json:"file_size"`
 }
 
 type XHSVideo struct {
-	PlayAddr    string `json:"play_addr"`
-	Duration    int    `json:"duration"`
-	Width       int    `json:"width"`
-	Height      int    `json:"height"`
-	Cover       string `json:"cover"`
+	PlayAddr string `json:"play_addr"`
+	Duration int    `json:"duration"`
+	Width    int    `json:"width"`
+	Height   int    `json:"height"`
+	Cover    string `json:"cover"`
 }
 
 type InteractInfo struct {
-	LikeCount   int `json:"liked_count"`
+	LikeCount    int `json:"liked_count"`
 	CollectCount int `json:"collected_count"`
 	CommentCount int `json:"comment_count"`
-	ShareCount  int `json:"share_count"`
+	ShareCount   int `json:"share_count"`
 }
 
 // XHSAPIResponse represents XHS API response
@@ -89,9 +89,9 @@ func NewExtractor(config *models.ExtractorConfig) *xhsExtractor {
 	if userAgent == "" {
 		userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 	}
-	
+
 	return &xhsExtractor{
-		client:    utils.NewHTTPClient(utils.ClientConfig{
+		client: utils.NewHTTPClient(utils.ClientConfig{
 			Timeout:     config.Timeout,
 			MaxRetries:  config.MaxRetries,
 			ProxyURL:    config.Proxy,
@@ -113,16 +113,16 @@ func (e *xhsExtractor) ExtractVideoInfo(xhsURL string) (*models.VideoInfo, error
 	if err != nil {
 		return nil, fmt.Errorf("error extracting note ID: %w", err)
 	}
-	
+
 	// Get note data
 	noteData, err := e.getNoteData(noteID)
 	if err != nil {
 		return nil, fmt.Errorf("error getting note data: %w", err)
 	}
-	
+
 	// Convert to VideoInfo
 	videoInfo := e.convertToVideoInfo(noteData)
-	
+
 	return videoInfo, nil
 }
 
@@ -133,10 +133,10 @@ func (e *xhsExtractor) ExtractAuthorInfo(authorID string) (*models.AuthorInfo, e
 	if err != nil {
 		return nil, fmt.Errorf("error getting user data: %w", err)
 	}
-	
+
 	// Convert to AuthorInfo
 	authorInfo := e.convertToAuthorInfo(userData)
-	
+
 	return authorInfo, nil
 }
 
@@ -147,20 +147,20 @@ func (e *xhsExtractor) ExtractBatch(url string, limit int) ([]*models.VideoInfo,
 	if err != nil {
 		return nil, fmt.Errorf("error extracting user ID: %w", err)
 	}
-	
+
 	// Get user notes
 	notes, err := e.getUserNotes(userID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("error getting user notes: %w", err)
 	}
-	
+
 	// Convert to VideoInfo
 	var videoInfos []*models.VideoInfo
 	for _, note := range notes {
 		videoInfo := e.convertToVideoInfo(&note)
 		videoInfos = append(videoInfos, videoInfo)
 	}
-	
+
 	return videoInfos, nil
 }
 
@@ -196,7 +196,7 @@ func (e *xhsExtractor) extractNoteID(url string) (string, error) {
 	if strings.Contains(url, "xhslink.com") {
 		return e.resolveShortURL(url)
 	}
-	
+
 	// Extract from explore/discovery URLs
 	re := regexp.MustCompile(`/(?:explore|discovery/item)/([^/?&]+)`)
 	matches := re.FindStringSubmatch(url)
@@ -225,11 +225,11 @@ func (e *xhsExtractor) resolveShortURL(shortURL string) (string, error) {
 		return "", fmt.Errorf("error resolving short URL: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-	
+
 	// Get final URL after redirects
 	finalURL := resp.Request.URL.String()
 	return e.extractNoteID(finalURL)
@@ -239,28 +239,28 @@ func (e *xhsExtractor) resolveShortURL(shortURL string) (string, error) {
 func (e *xhsExtractor) getNoteData(noteID string) (*XHSNote, error) {
 	// XHS doesn't have a public API, so we need to scrape the web page
 	noteURL := fmt.Sprintf("https://www.xiaohongshu.com/explore/%s", noteID)
-	
+
 	headers := map[string]string{
 		"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 		"Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
 		"User-Agent":      e.userAgent,
 		"Referer":         "https://www.xiaohongshu.com/",
 	}
-	
+
 	if e.cookie != "" {
 		headers["Cookie"] = e.cookie
 	}
-	
+
 	resp, err := e.client.Get(noteURL, headers)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching note page: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-	
+
 	// Parse HTML to extract note data
 	return e.extractNoteFromHTML(resp.Body)
 }
@@ -268,27 +268,27 @@ func (e *xhsExtractor) getNoteData(noteID string) (*XHSNote, error) {
 // getUserData fetches user data from XHS
 func (e *xhsExtractor) getUserData(userID string) (*XHSUser, error) {
 	userURL := fmt.Sprintf("https://www.xiaohongshu.com/user/profile/%s", userID)
-	
+
 	headers := map[string]string{
 		"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 		"Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
 		"User-Agent":      e.userAgent,
 	}
-	
+
 	if e.cookie != "" {
 		headers["Cookie"] = e.cookie
 	}
-	
+
 	resp, err := e.client.Get(userURL, headers)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching user page: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-	
+
 	// Parse HTML to extract user data
 	return e.extractUserFromHTML(resp.Body)
 }
@@ -307,7 +307,7 @@ func (e *xhsExtractor) extractNoteFromHTML(body io.Reader) (*XHSNote, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error parsing HTML: %w", err)
 	}
-	
+
 	// Look for script tags containing data
 	var noteData *XHSNote
 	var f func(*html.Node)
@@ -331,11 +331,11 @@ func (e *xhsExtractor) extractNoteFromHTML(body io.Reader) (*XHSNote, error) {
 		}
 	}
 	f(doc)
-	
+
 	if noteData == nil {
 		return nil, fmt.Errorf("note data not found in HTML")
 	}
-	
+
 	return noteData, nil
 }
 
@@ -363,32 +363,32 @@ func (e *xhsExtractor) parseNextData(data map[string]interface{}) *XHSNote {
 // parseNoteData parses note data from JSON
 func (e *xhsExtractor) parseNoteData(data map[string]interface{}) *XHSNote {
 	note := &XHSNote{}
-	
+
 	if id, ok := data["id"].(string); ok {
 		note.ID = id
 	}
-	
+
 	if title, ok := data["title"].(string); ok {
 		note.Title = title
 	}
-	
+
 	if desc, ok := data["desc"].(string); ok {
 		note.Desc = desc
 	}
-	
+
 	if noteType, ok := data["type"].(string); ok {
 		note.Type = noteType
 	}
-	
+
 	if createTime, ok := data["create_time"].(float64); ok {
 		note.CreateTime = int64(createTime)
 	}
-	
+
 	// Parse user data
 	if user, ok := data["user"].(map[string]interface{}); ok {
 		note.User = e.parseUserData(user)
 	}
-	
+
 	// Parse images
 	if images, ok := data["images"].([]interface{}); ok {
 		for _, img := range images {
@@ -397,89 +397,89 @@ func (e *xhsExtractor) parseNoteData(data map[string]interface{}) *XHSNote {
 			}
 		}
 	}
-	
+
 	// Parse video
 	if video, ok := data["video"].(map[string]interface{}); ok {
 		note.Video = e.parseVideoData(video)
 	}
-	
+
 	return note
 }
 
 // parseUserData parses user data from JSON
 func (e *xhsExtractor) parseUserData(data map[string]interface{}) XHSUser {
 	user := XHSUser{}
-	
+
 	if id, ok := data["id"].(string); ok {
 		user.ID = id
 	}
-	
+
 	if nickname, ok := data["nickname"].(string); ok {
 		user.Nickname = nickname
 	}
-	
+
 	if avatar, ok := data["avatar"].(string); ok {
 		user.Avatar = avatar
 	}
-	
+
 	if desc, ok := data["desc"].(string); ok {
 		user.Desc = desc
 	}
-	
+
 	if followers, ok := data["fans"].(float64); ok {
 		user.Followers = int(followers)
 	}
-	
+
 	return user
 }
 
 // parseImageData parses image data from JSON
 func (e *xhsExtractor) parseImageData(data map[string]interface{}) XHSImage {
 	img := XHSImage{}
-	
+
 	if url, ok := data["url"].(string); ok {
 		img.URL = url
 	}
-	
+
 	if urlDefault, ok := data["url_default"].(string); ok {
 		img.URLDefault = urlDefault
 	}
-	
+
 	if width, ok := data["width"].(float64); ok {
 		img.Width = int(width)
 	}
-	
+
 	if height, ok := data["height"].(float64); ok {
 		img.Height = int(height)
 	}
-	
+
 	return img
 }
 
 // parseVideoData parses video data from JSON
 func (e *xhsExtractor) parseVideoData(data map[string]interface{}) XHSVideo {
 	video := XHSVideo{}
-	
+
 	if playAddr, ok := data["play_addr"].(string); ok {
 		video.PlayAddr = playAddr
 	}
-	
+
 	if duration, ok := data["duration"].(float64); ok {
 		video.Duration = int(duration)
 	}
-	
+
 	if width, ok := data["width"].(float64); ok {
 		video.Width = int(width)
 	}
-	
+
 	if height, ok := data["height"].(float64); ok {
 		video.Height = int(height)
 	}
-	
+
 	if cover, ok := data["cover"].(string); ok {
 		video.Cover = cover
 	}
-	
+
 	return video
 }
 
@@ -488,7 +488,7 @@ func (e *xhsExtractor) convertToVideoInfo(note *XHSNote) *models.VideoInfo {
 	var mediaType models.MediaType
 	var downloadURL string
 	var duration int
-	
+
 	if note.Type == "video" && note.Video.PlayAddr != "" {
 		mediaType = models.MediaTypeVideo
 		downloadURL = note.Video.PlayAddr
@@ -499,7 +499,7 @@ func (e *xhsExtractor) convertToVideoInfo(note *XHSNote) *models.VideoInfo {
 		downloadURL = note.Images[0].URL
 		duration = 0
 	}
-	
+
 	return &models.VideoInfo{
 		ID:          note.ID,
 		Platform:    models.PlatformXHS,
@@ -513,25 +513,25 @@ func (e *xhsExtractor) convertToVideoInfo(note *XHSNote) *models.VideoInfo {
 		Size:        0, // Will be filled during download
 		Format:      "mp4",
 		Quality:     "hd",
-		
+
 		// Author information
 		AuthorID:     note.User.ID,
 		AuthorName:   note.User.Nickname,
 		AuthorAvatar: note.User.Avatar,
-		
+
 		// Statistics
 		LikeCount:    note.InteractInfo.LikeCount,
 		ShareCount:   note.InteractInfo.ShareCount,
 		CommentCount: note.InteractInfo.CommentCount,
-		
+
 		// Timestamps
-		PublishedAt:  time.Unix(note.CreateTime, 0),
-		CollectedAt:  time.Now(),
-		
+		PublishedAt: time.Unix(note.CreateTime, 0),
+		CollectedAt: time.Now(),
+
 		// Status
-		Status:      "pending",
-		RetryCount:  0,
-		
+		Status:     "pending",
+		RetryCount: 0,
+
 		// Additional metadata
 		Metadata:    fmt.Sprintf(`{"tags":%s}`, strings.Join(note.Tags, ",")),
 		ExtractFrom: "web",

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 	"time"
-	
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
-	
+
 	"video-downloader/pkg/models"
 )
 
@@ -22,16 +22,16 @@ var (
 
 // AuthService handles authentication and authorization
 type AuthService struct {
-	storage    models.Storage
-	jwtSecret  []byte
-	logger     zerolog.Logger
+	storage   models.Storage
+	jwtSecret []byte
+	logger    zerolog.Logger
 }
 
 // NewAuthService creates a new authentication service
 func NewAuthService(jwtSecret string) *AuthService {
 	return &AuthService{
-		jwtSecret:  []byte(jwtSecret),
-		logger:     zerolog.New(os.Stdout).With().Timestamp().Logger(),
+		jwtSecret: []byte(jwtSecret),
+		logger:    zerolog.New(os.Stdout).With().Timestamp().Logger(),
 	}
 }
 
@@ -45,18 +45,18 @@ func (s *AuthService) CreateUser(username, password, role string) (*models.User,
 	if s.storage == nil {
 		return nil, errors.New("storage not set")
 	}
-	
+
 	// Check if user already exists
 	if existingUser, _ := s.storage.GetUserByUsername(username); existingUser != nil {
 		return nil, errors.New("user already exists")
 	}
-	
+
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Create user
 	user := &models.User{
 		ID:        generateUserID(),
@@ -67,9 +67,9 @@ func (s *AuthService) CreateUser(username, password, role string) (*models.User,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	
+
 	s.logger.Info().Str("username", username).Msg("User created successfully")
-	
+
 	return user, nil
 }
 
@@ -78,38 +78,38 @@ func (s *AuthService) Authenticate(username, password string) (string, *models.U
 	if s.storage == nil {
 		return "", nil, errors.New("storage not set")
 	}
-	
+
 	user, err := s.storage.GetUserByUsername(username)
 	if err != nil {
 		return "", nil, err
 	}
-	
+
 	if user == nil {
 		return "", nil, ErrUserNotFound
 	}
-	
+
 	if !user.Active {
 		return "", nil, errors.New("user account is inactive")
 	}
-	
+
 	// Check password
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
 		return "", nil, ErrInvalidCredentials
 	}
-	
+
 	// Generate JWT token
 	token, err := s.generateToken(user)
 	if err != nil {
 		return "", nil, err
 	}
-	
+
 	// Update last login
 	now := time.Now()
 	user.LastLogin = &now
-	
+
 	s.logger.Info().Str("username", username).Msg("User authenticated successfully")
-	
+
 	return token, user, nil
 }
 
@@ -118,36 +118,36 @@ func (s *AuthService) ValidateToken(tokenString string) (*models.User, error) {
 	if s.storage == nil {
 		return nil, errors.New("storage not set")
 	}
-	
+
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrInvalidToken
 		}
 		return s.jwtSecret, nil
 	})
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		userID, ok := claims["user_id"].(string)
 		if !ok {
 			return nil, ErrInvalidToken
 		}
-		
+
 		user, err := s.storage.GetUserByID(userID)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		if user == nil || !user.Active {
 			return nil, ErrUserNotFound
 		}
-		
+
 		return user, nil
 	}
-	
+
 	return nil, ErrInvalidToken
 }
 
@@ -157,7 +157,7 @@ func (s *AuthService) RefreshToken(tokenString string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	return s.generateToken(user)
 }
 
@@ -166,16 +166,16 @@ func (s *AuthService) GetUserByUsername(username string) (*models.User, error) {
 	if s.storage == nil {
 		return nil, errors.New("storage not set")
 	}
-	
+
 	user, err := s.storage.GetUserByUsername(username)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if user == nil {
 		return nil, ErrUserNotFound
 	}
-	
+
 	return user, nil
 }
 
@@ -184,16 +184,16 @@ func (s *AuthService) UpdateUser(username string, updates map[string]interface{}
 	if s.storage == nil {
 		return errors.New("storage not set")
 	}
-	
+
 	user, err := s.storage.GetUserByUsername(username)
 	if err != nil {
 		return err
 	}
-	
+
 	if user == nil {
 		return ErrUserNotFound
 	}
-	
+
 	// Update user object
 	for key, value := range updates {
 		switch key {
@@ -215,11 +215,11 @@ func (s *AuthService) UpdateUser(username string, updates map[string]interface{}
 			}
 		}
 	}
-	
+
 	user.UpdatedAt = time.Now()
-	
+
 	s.logger.Info().Str("username", username).Msg("User updated successfully")
-	
+
 	return nil
 }
 
@@ -232,9 +232,9 @@ func (s *AuthService) generateToken(user *models.User) (string, error) {
 		"exp":      time.Now().Add(24 * time.Hour).Unix(),
 		"iat":      time.Now().Unix(),
 	}
-	
+
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	
+
 	return token.SignedString(s.jwtSecret)
 }
 
@@ -267,11 +267,11 @@ func (sm *SessionManager) CreateSession(userID, token string, expiresAt time.Tim
 		CreatedAt: time.Now(),
 		Active:    true,
 	}
-	
+
 	sm.sessions[session.ID] = session
-	
+
 	sm.logger.Info().Str("user_id", userID).Msg("Session created")
-	
+
 	return session, nil
 }
 
@@ -281,13 +281,13 @@ func (sm *SessionManager) GetSession(sessionID string) (*models.Session, error) 
 	if !exists {
 		return nil, errors.New("session not found")
 	}
-	
+
 	// Check if session is expired
 	if time.Now().After(session.ExpiresAt) {
 		session.Active = false
 		return nil, ErrTokenExpired
 	}
-	
+
 	return session, nil
 }
 
@@ -297,11 +297,11 @@ func (sm *SessionManager) InvalidateSession(sessionID string) error {
 	if !exists {
 		return errors.New("session not found")
 	}
-	
+
 	session.Active = false
-	
+
 	sm.logger.Info().Str("session_id", sessionID).Msg("Session invalidated")
-	
+
 	return nil
 }
 
@@ -314,12 +314,12 @@ func (sm *SessionManager) InvalidateAllUserSessions(userID string) error {
 			count++
 		}
 	}
-	
+
 	sm.logger.Info().
 		Str("user_id", userID).
 		Str("count", fmt.Sprintf("%d", count)).
 		Msg("All user sessions invalidated")
-	
+
 	return nil
 }
 
@@ -327,14 +327,14 @@ func (sm *SessionManager) InvalidateAllUserSessions(userID string) error {
 func (sm *SessionManager) CleanupExpiredSessions() {
 	count := 0
 	now := time.Now()
-	
+
 	for id, session := range sm.sessions {
 		if now.After(session.ExpiresAt) {
 			delete(sm.sessions, id)
 			count++
 		}
 	}
-	
+
 	if count > 0 {
 		sm.logger.Info().Str("count", fmt.Sprintf("%d", count)).Msg("Cleaned up expired sessions")
 	}

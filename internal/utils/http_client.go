@@ -2,13 +2,14 @@ package utils
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"time"
-	
+
 	"github.com/rs/zerolog"
 	"golang.org/x/net/proxy"
 )
@@ -22,15 +23,15 @@ type HTTPClient struct {
 
 // ClientConfig represents HTTP client configuration
 type ClientConfig struct {
-	Timeout       time.Duration
-	MaxIdleConns  int
+	Timeout         time.Duration
+	MaxIdleConns    int
 	IdleConnTimeout time.Duration
-	ProxyURL      string
-	UserAgent     string
-	Cookie        string
-	TLSInsecure   bool
-	MaxRetries    int
-	RetryDelay    time.Duration
+	ProxyURL        string
+	UserAgent       string
+	Cookie          string
+	TLSInsecure     bool
+	MaxRetries      int
+	RetryDelay      time.Duration
 }
 
 // NewHTTPClient creates a new HTTP client with the given configuration
@@ -44,7 +45,7 @@ func NewHTTPClient(config ClientConfig) *HTTPClient {
 		ForceAttemptHTTP2:   true,
 		MaxIdleConnsPerHost: 10,
 	}
-	
+
 	// Configure proxy if provided
 	if config.ProxyURL != "" {
 		proxyURL, err := url.Parse(config.ProxyURL)
@@ -60,20 +61,20 @@ func NewHTTPClient(config ClientConfig) *HTTPClient {
 			}
 		}
 	}
-	
+
 	// Configure TLS
 	if config.TLSInsecure {
 		transport.TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}
 	}
-	
+
 	// Create client
 	client := &http.Client{
 		Transport: transport,
 		Timeout:   config.Timeout,
 	}
-	
+
 	return &HTTPClient{
 		client:    client,
 		transport: transport,
@@ -87,7 +88,7 @@ func (c *HTTPClient) Get(url string, headers map[string]string) (*http.Response,
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
-	
+
 	return c.Do(req, headers)
 }
 
@@ -97,11 +98,28 @@ func (c *HTTPClient) Post(url, contentType string, body strings.Reader, headers 
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
-	
+
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
-	
+
+	return c.Do(req, headers)
+}
+
+// PostJSON performs a POST request with JSON data
+func (c *HTTPClient) PostJSON(url string, data any, headers map[string]string) (*http.Response, error) {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling JSON: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
 	return c.Do(req, headers)
 }
 
@@ -109,18 +127,18 @@ func (c *HTTPClient) Post(url, contentType string, body strings.Reader, headers 
 func (c *HTTPClient) Do(req *http.Request, headers map[string]string) (*http.Response, error) {
 	// Set default headers
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-	
+
 	// Set custom headers
 	for key, value := range headers {
 		req.Header.Set(key, value)
 	}
-	
+
 	// Log request
 	c.logger.Debug().
 		Str("method", req.Method).
 		Str("url", req.URL.String()).
 		Msg("Making HTTP request")
-	
+
 	return c.client.Do(req)
 }
 
@@ -128,13 +146,13 @@ func (c *HTTPClient) Do(req *http.Request, headers map[string]string) (*http.Res
 func (c *HTTPClient) GetWithRetry(url string, headers map[string]string, maxRetries int, retryDelay time.Duration) (*http.Response, error) {
 	var resp *http.Response
 	var err error
-	
-	for i := 0; i < maxRetries; i++ {
+
+	for i := range maxRetries {
 		resp, err = c.Get(url, headers)
 		if err == nil && resp.StatusCode < 500 {
 			return resp, nil
 		}
-		
+
 		if i < maxRetries-1 {
 			c.logger.Warn().
 				Int("attempt", i+1).
@@ -142,11 +160,11 @@ func (c *HTTPClient) GetWithRetry(url string, headers map[string]string, maxRetr
 				Str("url", url).
 				Err(err).
 				Msg("Request failed, retrying...")
-			
+
 			time.Sleep(retryDelay)
 		}
 	}
-	
+
 	return nil, fmt.Errorf("request failed after %d attempts: %w", maxRetries, err)
 }
 
@@ -156,7 +174,7 @@ func (c *HTTPClient) Head(url string, headers map[string]string) (*http.Response
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
-	
+
 	return c.Do(req, headers)
 }
 
@@ -167,16 +185,16 @@ func (c *HTTPClient) GetFileSize(url string) (int64, error) {
 		return 0, fmt.Errorf("error getting file size: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-	
+
 	size, err := ParseContentLength(resp.Header.Get("Content-Length"))
 	if err != nil {
 		return 0, fmt.Errorf("error parsing content length: %w", err)
 	}
-	
+
 	return size, nil
 }
 
@@ -187,7 +205,7 @@ func (c *HTTPClient) SupportsResume(url string) bool {
 		return false
 	}
 	defer resp.Body.Close()
-	
+
 	return resp.Header.Get("Accept-Ranges") == "bytes"
 }
 
@@ -207,24 +225,24 @@ func ParseContentLength(s string) (int64, error) {
 	if s == "" {
 		return 0, nil
 	}
-	
+
 	var length int64
 	_, err := fmt.Sscanf(s, "%d", &length)
 	if err != nil {
 		return 0, fmt.Errorf("error parsing content length: %w", err)
 	}
-	
+
 	return length, nil
 }
 
 // ExtractCookies extracts cookies from response headers
 func ExtractCookies(resp *http.Response) map[string]string {
 	cookies := make(map[string]string)
-	
+
 	for _, cookie := range resp.Cookies() {
 		cookies[cookie.Name] = cookie.Value
 	}
-	
+
 	return cookies
 }
 
@@ -234,13 +252,13 @@ func BuildURL(baseURL string, params map[string]string) string {
 	if err != nil {
 		return baseURL
 	}
-	
+
 	q := u.Query()
 	for key, value := range params {
 		q.Set(key, value)
 	}
 	u.RawQuery = q.Encode()
-	
+
 	return u.String()
 }
 
@@ -249,20 +267,20 @@ func SanitizeFilename(filename string) string {
 	// Replace invalid characters with underscores
 	invalid := []string{"<", ">", ":", "\"", "/", "\\", "|", "?", "*"}
 	result := filename
-	
+
 	for _, char := range invalid {
 		result = strings.ReplaceAll(result, char, "_")
 	}
-	
+
 	// Remove leading/trailing whitespace and dots
 	result = strings.TrimSpace(result)
 	result = strings.Trim(result, ".")
-	
+
 	// Limit length
 	if len(result) > 200 {
 		result = result[:200]
 	}
-	
+
 	return result
 }
 
