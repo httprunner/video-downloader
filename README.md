@@ -2,6 +2,16 @@
 
 A unified video downloader for TikTok, Xiaohongshu (XHS), and Kuaishou platforms built with Go.
 
+## Project Background
+
+This project is a Go-based unified video downloader that consolidates functionality from three original Python projects:
+
+- [JoeanAmier/TikTokDownloader](https://github.com/JoeanAmier/TikTokDownloader) - TikTok video downloader
+- [JoeanAmier/XHS-Downloader](https://github.com/JoeanAmier/XHS-Downloader) - Xiaohongshu (XHS) downloader
+- [JoeanAmier/KS-Downloader](https://github.com/JoeanAmier/KS-Downloader) - Kuaishou downloader
+
+The Go implementation provides improved performance, better cross-platform support, and unified functionality across all three platforms. We acknowledge and appreciate the contributions of the original authors.
+
 ## Features
 
 - **Multi-platform Support**: Download videos from TikTok, XHS, and Kuaishou

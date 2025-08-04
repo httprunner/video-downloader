@@ -871,44 +871,33 @@ func (e *kuaishouExtractor) getVideoFromAPI(videoID string) (*KSVideo, error) {
 
 	e.logger.Info().Str("video_id", videoID).Str("api_url", apiURL).Bool("has_cookie", e.cookie != "").Msg("Making GraphQL API request")
 
-	// GraphQL query for video details
-	query := `query visionVideoDetail($photoId: String, $type: String, $page: String, $webPageArea: String) {
-		visionVideoDetail(photoId: $photoId, type: $type, page: $page, webPageArea: $webPageArea) {
+	// GraphQL query for video details (corrected based on schema validation)
+	query := `query visionVideoDetail($photoId: String) {
+		visionVideoDetail(photoId: $photoId) {
 			status
 			type
 			author {
 				id
 				name
-				avatar
-				following
-				fans
 			}
 			photo {
 				id
 				caption
 				duration
 				timestamp
-				width
-				height
 				coverUrl
 				viewCount
 				likeCount
-				commentCount
-				shareCount
-				mainMvUrls {
-					url
-					qualityType
+				manifest {
+					mediaType
+					adaptationSet {
+						id
+						representation {
+							id
+							url
+						}
+					}
 				}
-				mainImageUrls {
-					url
-				}
-				atlasEntry {
-					cdn
-					list
-				}
-			}
-			llsActionInfo {
-				type
 			}
 		}
 	}`
@@ -917,10 +906,7 @@ func (e *kuaishouExtractor) getVideoFromAPI(videoID string) (*KSVideo, error) {
 	requestData := map[string]interface{}{
 		"operationName": "visionVideoDetail",
 		"variables": map[string]interface{}{
-			"photoId":     videoID,
-			"type":        "profile",
-			"page":        "detail",
-			"webPageArea": "mainContent",
+			"photoId": videoID,
 		},
 		"query": query,
 	}
@@ -958,8 +944,8 @@ func (e *kuaishouExtractor) getVideoFromAPI(videoID string) (*KSVideo, error) {
 	var apiResp struct {
 		Data struct {
 			VisionVideoDetail struct {
-				Status string `json:"status"`
-				Type   string `json:"type"`
+				Status interface{} `json:"status"` // Can be string or number
+				Type   string      `json:"type"`
 				Author struct {
 					ID        string `json:"id"`
 					Name      string `json:"name"`
@@ -979,6 +965,19 @@ func (e *kuaishouExtractor) getVideoFromAPI(videoID string) (*KSVideo, error) {
 					LikeCount    int    `json:"likeCount"`
 					CommentCount int    `json:"commentCount"`
 					ShareCount   int    `json:"shareCount"`
+					Manifest     struct {
+						MediaType     string `json:"mediaType"`
+						AdaptationSet []struct {
+							ID             string `json:"id"`
+							Representation []struct {
+								ID       string `json:"id"`
+								URL      string `json:"url"`
+								Bandwidth int   `json:"bandwidth"`
+								QualityType int `json:"qualityType"`
+								QualityLabel string `json:"qualityLabel"`
+							} `json:"representation"`
+						} `json:"adaptationSet"`
+					} `json:"manifest"`
 					MainMvUrls   []struct {
 						URL         string `json:"url"`
 						QualityType int    `json:"qualityType"`
@@ -1003,16 +1002,32 @@ func (e *kuaishouExtractor) getVideoFromAPI(videoID string) (*KSVideo, error) {
 		return nil, err
 	}
 
-	// Check for GraphQL errors
+	// Check for GraphQL errors - specifically handle captcha requirement
 	if len(apiResp.Errors) > 0 {
+		for _, err := range apiResp.Errors {
+			if err.Message == "Need captcha" {
+				e.logger.Warn().Msg("Kuaishou API requires captcha verification - this is anti-bot protection")
+				return nil, fmt.Errorf("Kuaishou requires captcha verification. Please try again later or use a different approach")
+			}
+		}
 		e.logger.Warn().Interface("errors", apiResp.Errors).Msg("GraphQL API returned errors")
 		return nil, fmt.Errorf("GraphQL API errors: %v", apiResp.Errors)
 	}
 
-	// Check if we got valid data
-	if apiResp.Data.VisionVideoDetail.Status != "success" {
-		e.logger.Warn().Str("status", apiResp.Data.VisionVideoDetail.Status).Msg("GraphQL API returned non-success status")
-		return nil, fmt.Errorf("API returned status: %s", apiResp.Data.VisionVideoDetail.Status)
+	// Check if we got valid data - handle both string and number status
+	// Don't fail immediately on non-success status, try to extract data anyway
+	statusOK := false
+	switch status := apiResp.Data.VisionVideoDetail.Status.(type) {
+	case string:
+		statusOK = status == "success"
+	case float64:
+		statusOK = status == 1 // Usually 1 means success for numeric status
+	case int:
+		statusOK = status == 1
+	}
+
+	if !statusOK {
+		e.logger.Warn().Interface("status", apiResp.Data.VisionVideoDetail.Status).Msg("GraphQL API returned non-success status, attempting to extract data anyway")
 	}
 
 	// Convert API response to KSVideo
@@ -1046,12 +1061,29 @@ func (e *kuaishouExtractor) getVideoFromAPI(videoID string) (*KSVideo, error) {
 		},
 	}
 
-	// Extract video URLs
+	// Debug: Log manifest info
+	e.logger.Info().Int("adaptation_sets", len(apiResp.Data.VisionVideoDetail.Photo.Manifest.AdaptationSet)).Msg("Manifest data received")
+
+	// Extract video URLs from manifest.adaptationSet.representation (primary method)
 	var videoURLs []string
-	for _, mvUrl := range apiResp.Data.VisionVideoDetail.Photo.MainMvUrls {
-		if mvUrl.URL != "" {
-			videoURLs = append(videoURLs, mvUrl.URL)
-			e.logger.Info().Str("video_url", mvUrl.URL).Int("quality", mvUrl.QualityType).Msg("Found video URL from API")
+	for i, adaptationSet := range apiResp.Data.VisionVideoDetail.Photo.Manifest.AdaptationSet {
+		e.logger.Debug().Int("set_index", i).Str("set_id", adaptationSet.ID).Int("representations", len(adaptationSet.Representation)).Msg("Processing adaptation set")
+		for j, representation := range adaptationSet.Representation {
+			if representation.URL != "" {
+				videoURLs = append(videoURLs, representation.URL)
+				e.logger.Info().Str("video_url", representation.URL).Int("quality", representation.QualityType).Str("quality_label", representation.QualityLabel).Int("set", i).Int("rep", j).Msg("Found video URL from manifest")
+			}
+		}
+	}
+
+	// Fallback to mainMvUrls if manifest is empty
+	if len(videoURLs) == 0 {
+		e.logger.Info().Int("main_mv_urls", len(apiResp.Data.VisionVideoDetail.Photo.MainMvUrls)).Msg("Falling back to mainMvUrls")
+		for _, mvUrl := range apiResp.Data.VisionVideoDetail.Photo.MainMvUrls {
+			if mvUrl.URL != "" {
+				videoURLs = append(videoURLs, mvUrl.URL)
+				e.logger.Info().Str("video_url", mvUrl.URL).Int("quality", mvUrl.QualityType).Msg("Found video URL from mainMvUrls")
+			}
 		}
 	}
 

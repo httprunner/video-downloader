@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Background
+
+This project is a Go-based unified video downloader that consolidates functionality from three original Python projects:
+
+- [JoeanAmier/TikTokDownloader](https://github.com/JoeanAmier/TikTokDownloader) - TikTok video downloader
+- [JoeanAmier/XHS-Downloader](https://github.com/JoeanAmier/XHS-Downloader) - Xiaohongshu (XHS) downloader
+- [JoeanAmier/KS-Downloader](https://github.com/JoeanAmier/KS-Downloader) - Kuaishou downloader
+
+The Go implementation provides improved performance, better cross-platform support, and unified functionality across all three platforms. We acknowledge and appreciate the contributions of the original authors.
+
 ## Common Commands
 
 ### Development
@@ -245,20 +255,32 @@ The Go implementation now includes most features from the original Python reposi
 The Go implementation uses Kuaishou's internal GraphQL API to extract real video URLs, but faces modern anti-scraping challenges:
 
 - **Primary Method**: GraphQL query to `https://www.kuaishou.com/graphql` using the `visionVideoDetail` query
-- **Anti-Scraping Protection**: Kuaishou implements risk control that blocks unauthenticated requests
+- **Anti-Scraping Protection**: Kuaishou implements multiple layers of protection:
+  - Risk control that blocks unauthenticated requests
+  - Captcha verification ("Need captcha" error) triggered by automated activity detection
+  - Rate limiting and bot detection algorithms
 - **Authentication Required**: Requires valid browser cookies from an authenticated session
+- **GraphQL Schema**: Uses `manifest.adaptationSet.representation.url` structure for video URLs
 - **Fallback Method**: HTML parsing for cases where the API is unavailable
-- **Video URL Extraction**: Successfully extracts `mainMvUrls` when properly authenticated
+- **Video URL Extraction**: Successfully extracts real video URLs when properly authenticated and not blocked
 - **Multi-quality Support**: Handles different quality types returned by the API
 - **Image Support**: Falls back to `mainImageUrls` for image content
 
-**Current Status**: ✅ API framework implemented, ⚠️ requires browser cookies for success
+**Current Status**: ✅ API framework implemented with proper error handling
+**Limitation**: ⚠️ Requires captcha verification due to anti-bot protection
 
-**Setup Required**: Users must configure browser cookies in `config/config.yaml` - see `docs/KUAISHOU_SETUP.md` for detailed instructions.
+**Technical Implementation Details**:
+- Detects captcha requirement ("Need captcha" GraphQL error)
+- Provides clear error messages explaining extraction failures
+- Falls back to HTML parsing when API is blocked
+- Creates explanation files for unavailable content
+- Handles both string and numeric status codes from API
+
+**Setup Required**: Users must configure fresh browser cookies in `config/config.yaml` - see `docs/KUAISHOU_SETUP.md` for detailed instructions. Note that cookies may need frequent updates due to anti-bot measures.
 
 #### Platform-Specific Extractors
 - **TikTok**: Uses web scraping with fallback to mobile API endpoints
-- **XHS**: Leverages XHS internal APIs with proper headers and authentication  
+- **XHS**: Leverages XHS internal APIs with proper headers and authentication
 - **Kuaishou**: GraphQL API first, HTML parsing second, with proper cookie management
 
 #### Enhanced Error Handling
