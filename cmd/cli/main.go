@@ -24,6 +24,7 @@ var (
 	format     string
 	quality    string
 	verbose    bool
+	cookies    string
 )
 
 var rootCmd = &cobra.Command{
@@ -54,6 +55,27 @@ var downloadCmd = &cobra.Command{
 		cfg, err := configManager.Load(configPath)
 		if err != nil {
 			return fmt.Errorf("error loading configuration: %w", err)
+		}
+
+		// Override cookies from command line if provided
+		if cookies != "" {
+			// Try to detect platform from URL and set cookies accordingly
+			if strings.Contains(url, "kuaishou.com") {
+				cfg.Platforms.Kuaishou.Cookie = cookies
+				fmt.Printf("Using command line cookies for Kuaishou\n")
+			} else if strings.Contains(url, "tiktok.com") {
+				cfg.Platforms.TikTok.Cookie = cookies
+				fmt.Printf("Using command line cookies for TikTok\n")
+			} else if strings.Contains(url, "xiaohongshu.com") {
+				cfg.Platforms.XHS.Cookie = cookies
+				fmt.Printf("Using command line cookies for XHS\n")
+			} else {
+				// Apply to all platforms if URL doesn't match
+				cfg.Platforms.Kuaishou.Cookie = cookies
+				cfg.Platforms.TikTok.Cookie = cookies
+				cfg.Platforms.XHS.Cookie = cookies
+				fmt.Printf("Using command line cookies for all platforms\n")
+			}
 		}
 
 		// Initialize storage
@@ -359,6 +381,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&format, "format", "f", "", "Output format (mp4, mp3, etc.)")
 	rootCmd.PersistentFlags().StringVarP(&quality, "quality", "q", "", "Video quality (hd, sd, etc.)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Verbose output")
+	rootCmd.PersistentFlags().StringVar(&cookies, "cookies", "", "Browser cookies for authentication (format: 'key1=value1; key2=value2')")
 
 	// Add commands
 	rootCmd.AddCommand(downloadCmd)

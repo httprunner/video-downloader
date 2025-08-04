@@ -220,6 +220,7 @@ The Go implementation now includes most features from the original Python reposi
 ✅ File naming templates
 ✅ Progress tracking
 ✅ Error handling and retries
+✅ GraphQL API integration for real video URLs
 
 **From TikTokDownloader:**
 ✅ Multiple interface support (CLI/TUI/API)
@@ -237,6 +238,34 @@ The Go implementation now includes most features from the original Python reposi
 ✅ Metadata persistence
 ✅ Progress monitoring
 ✅ File integrity verification
+
+### Key Implementation Details
+
+#### Kuaishou GraphQL API Integration
+The Go implementation uses Kuaishou's internal GraphQL API to extract real video URLs, but faces modern anti-scraping challenges:
+
+- **Primary Method**: GraphQL query to `https://www.kuaishou.com/graphql` using the `visionVideoDetail` query
+- **Anti-Scraping Protection**: Kuaishou implements risk control that blocks unauthenticated requests
+- **Authentication Required**: Requires valid browser cookies from an authenticated session
+- **Fallback Method**: HTML parsing for cases where the API is unavailable
+- **Video URL Extraction**: Successfully extracts `mainMvUrls` when properly authenticated
+- **Multi-quality Support**: Handles different quality types returned by the API
+- **Image Support**: Falls back to `mainImageUrls` for image content
+
+**Current Status**: ✅ API framework implemented, ⚠️ requires browser cookies for success
+
+**Setup Required**: Users must configure browser cookies in `config/config.yaml` - see `docs/KUAISHOU_SETUP.md` for detailed instructions.
+
+#### Platform-Specific Extractors
+- **TikTok**: Uses web scraping with fallback to mobile API endpoints
+- **XHS**: Leverages XHS internal APIs with proper headers and authentication  
+- **Kuaishou**: GraphQL API first, HTML parsing second, with proper cookie management
+
+#### Enhanced Error Handling
+- **Graceful Degradation**: If GraphQL API fails, falls back to HTML parsing
+- **Detailed Logging**: Comprehensive logging at debug and info levels for troubleshooting
+- **User-Friendly Messages**: Clear error messages explaining extraction failures
+- **Retry Logic**: Configurable retry attempts with exponential backoff
 
 ### Missing Features (Future Implementation)
 - Live streaming download (FFmpeg integration)

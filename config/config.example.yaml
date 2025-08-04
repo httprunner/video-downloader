@@ -1,0 +1,71 @@
+# Video Downloader Configuration Example
+# Copy this file to config.yaml and modify as needed
+
+server:
+  host: 0.0.0.0
+  port: 8080
+  read_timeout: 30
+  write_timeout: 30
+
+download:
+  max_workers: 5
+  chunk_size: 1048576  # 1MB
+  timeout: 300
+  retry_count: 3
+  save_path: ./downloads
+  create_folder: true
+  file_naming: "{platform}_{author}_{title}_{id}"
+
+database:
+  type: sqlite
+  path: ./data/video-downloader.db
+  max_conns: 10
+
+log:
+  level: info
+  format: text
+  output: stdout
+
+proxy:
+  enabled: false
+  type: http
+  host: ""
+  port: 0
+  username: ""
+  password: ""
+
+platforms:
+  tiktok:
+    enabled: true
+    api_key: ""
+    cookie: ""
+    user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+
+  xhs:
+    enabled: true
+    cookie: ""
+    user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+
+  kuaishou:
+    enabled: true
+    # Add your Kuaishou cookies here for better success rate
+    # You can get these from your browser's Developer Tools -> Application -> Cookies
+    # Example: "did=web_xxxx; kuaishou.server.web_st=xxxx; kuaishou.server.web_ph=xxxx"
+    cookie: ""
+    user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+
+auth:
+  enabled: true
+  jwt_secret: "your-secret-key-change-this-in-production"
+  token_expiry: 24
+  admin_password: "admin123"
+
+rate_limit:
+  enabled: true
+  requests_per_second: 10
+  burst: 30
+  max_concurrent: 100
+  adaptive: true
+  whitelisted_ips:
+    - "127.0.0.1"
+    - "::1"
